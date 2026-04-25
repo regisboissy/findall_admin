@@ -68,6 +68,11 @@ class _AdminProvidersScreenState extends State<AdminProvidersScreen> {
     return DateTime(d.year, d.month + 1, 0);
   }
 
+  void log(String label, dynamic value) {
+    debugPrint('--- $label ---');
+    debugPrint(value.toString());
+  }
+
   Future<double> fetchEurUsdRate(DateTime date) async {
     final fxDate = dateKey(date);
 
@@ -76,20 +81,48 @@ class _AdminProvidersScreenState extends State<AdminProvidersScreen> {
     );
 
     final response = await http.get(uri);
+    log('FX URL', uri.toString());
+    log('FX STATUS', response.statusCode);
+    log('FX BODY', response.body);
 
     if (response.statusCode != 200) {
-      throw Exception('Impossible de récupérer le taux EUR/USD');
+      throw Exception(
+        'Impossible de récupérer le taux EUR/USD : HTTP ${response.statusCode} - ${response.body}',
+      );
     }
 
-    final decoded = jsonDecode(response.body) as Map<String, dynamic>;
-    final rates = decoded['rates'] as Map<String, dynamic>;
-    final usd = rates['USD'];
+    final dynamic decoded = jsonDecode(response.body);
+    log('FX DECODED TYPE', decoded.runtimeType);
+    log('FX DECODED', decoded);
 
-    if (usd is num) {
-      return usd.toDouble();
+
+    if (decoded is! Map) {
+      throw Exception(
+        'Réponse taux inattendue : ${decoded.runtimeType} - ${response.body}',
+      );
     }
 
-    throw Exception('Taux EUR/USD introuvable');
+    final dynamic ratesRaw = decoded['rates'];
+    log('FX RATES TYPE', ratesRaw.runtimeType);
+    log('FX RATES', ratesRaw);
+
+    if (ratesRaw is! Map) {
+      throw Exception(
+        'Bloc rates introuvable dans la réponse : ${response.body}',
+      );
+    }
+
+    final dynamic usdRaw = ratesRaw['USD'];
+    log('FX USD TYPE', usdRaw.runtimeType);
+    log('FX USD', usdRaw);
+
+    if (usdRaw is num) {
+      return usdRaw.toDouble();
+    }
+
+    throw Exception(
+      'Taux USD introuvable dans la réponse : ${response.body}',
+    );
   }
 
   Future<void> loadData() async {
@@ -210,6 +243,13 @@ class _AdminProvidersScreenState extends State<AdminProvidersScreen> {
                 final fxRate = await fetchEurUsdRate(fxDate);
                 final costUsd = costEur * fxRate;
 
+                log('SAVE PROVIDER', provider);
+                log('SAVE EUR', costEur);
+                log('SAVE FX RATE', fxRate);
+                log('SAVE USD', costUsd);
+                log('SAVE EXISTING TYPE', existing.runtimeType);
+                log('SAVE EXISTING', existing);
+
                 if (existing == null) {
                   await supabase.from('provider_usage_snapshots').insert({
                     'provider': provider,
@@ -226,6 +266,8 @@ class _AdminProvidersScreenState extends State<AdminProvidersScreen> {
                     'comment': commentCtrl.text,
                   });
                 } else {
+                  log('UPDATE EXISTING ID TYPE', existing['id']?.runtimeType);
+                  log('UPDATE EXISTING ID', existing['id']);
                   if (existing['id'] == null) {
                     throw Exception('ID manquant pour update');
                   }
@@ -254,7 +296,9 @@ class _AdminProvidersScreenState extends State<AdminProvidersScreen> {
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(content: Text('Coût provider enregistré')),
                 );
-              } catch (e) {
+              } catch (e, stack) {
+                log('SAVE ERROR', e);
+                log('SAVE STACK', stack);
                 if (!mounted) return;
 
                 ScaffoldMessenger.of(context).showSnackBar(

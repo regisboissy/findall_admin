@@ -4,6 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import 'admin_layout.dart';
+
 class AdminProvidersScreen extends StatefulWidget {
   const AdminProvidersScreen({super.key});
 
@@ -399,17 +401,16 @@ class _AdminProvidersScreenState extends State<AdminProvidersScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text('Providers')),
-      body: isLoading
+    return AdminLayout(
+      title: 'Providers',
+      child: isLoading
           ? const Center(child: CircularProgressIndicator())
           : error != null
               ? Padding(
                   padding: const EdgeInsets.all(24),
                   child: Text('Erreur : $error'),
                 )
-              : Padding(
-                  padding: const EdgeInsets.all(24),
+              : SingleChildScrollView(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [

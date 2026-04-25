@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'dart:ui';
+
+import 'admin_layout.dart';
 
 class AdminCostsScreen extends StatefulWidget {
   const AdminCostsScreen({super.key});
@@ -16,6 +19,14 @@ class _AdminCostsScreenState extends State<AdminCostsScreen> {
 
   List<Map<String, dynamic>> byGuest = [];
   List<Map<String, dynamic>> byDocument = [];
+  
+  int pageSize = 20;
+  int guestPage = 0;
+  int documentPage = 0;
+  
+  String? selectedGuest;
+  DateTime? selectedDate;
+  String period = 'month'; // day / week / month
 
   @override
   void initState() {
@@ -36,15 +47,23 @@ class _AdminCostsScreenState extends State<AdminCostsScreen> {
     });
 
     try {
+      final guestFrom = guestPage * pageSize;
+      final guestTo = guestFrom + pageSize - 1;
+
+      final documentFrom = documentPage * pageSize;
+      final documentTo = documentFrom + pageSize - 1;
+
       final guestResponse = await supabase
           .from('v_cost_events_by_guest')
           .select()
-          .limit(50);
+          .order('total_cost_usd', ascending: false)
+          .range(guestFrom, guestTo);
 
       final documentResponse = await supabase
           .from('v_cost_events_by_document')
           .select()
-          .limit(50);
+          .order('total_cost_usd', ascending: false)
+          .range(documentFrom, documentTo);
 
       setState(() {
         byGuest = List<Map<String, dynamic>>.from(guestResponse);
@@ -69,6 +88,82 @@ class _AdminCostsScreenState extends State<AdminCostsScreen> {
     );
   }
 
+  Widget filters() {
+    return Row(
+      children: [
+        DropdownButton<String>(
+          value: period,
+          items: const [
+            DropdownMenuItem(value: 'day', child: Text('Jour')),
+            DropdownMenuItem(value: 'week', child: Text('Semaine')),
+            DropdownMenuItem(value: 'month', child: Text('Mois')),
+          ],
+          onChanged: (value) {
+            if (value == null) return;
+            setState(() => period = value);
+            loadData();
+          },
+        ),
+        const SizedBox(width: 12),
+        SizedBox(
+          width: 200,
+          child: TextField(
+            decoration: const InputDecoration(
+              labelText: 'Guest ID',
+            ),
+            onChanged: (value) {
+              selectedGuest = value.isEmpty ? null : value;
+            },
+            onSubmitted: (_) => loadData(),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget paginationControls({
+    required String label,
+    required int page,
+    required bool hasNext,
+    required VoidCallback onPrevious,
+    required VoidCallback onNext,
+  }) {
+    return Row(
+      children: [
+        Text('$label — page ${page + 1}'),
+        const Spacer(),
+        DropdownButton<int>(
+          value: pageSize,
+          items: const [
+            DropdownMenuItem(value: 20, child: Text('20')),
+            DropdownMenuItem(value: 50, child: Text('50')),
+            DropdownMenuItem(value: 100, child: Text('100')),
+          ],
+          onChanged: (value) {
+            if (value == null) return;
+
+            setState(() {
+              pageSize = value;
+              guestPage = 0;
+              documentPage = 0;
+            });
+
+            loadData();
+          },
+        ),
+        const SizedBox(width: 12),
+        IconButton(
+          onPressed: page > 0 ? onPrevious : null,
+          icon: const Icon(Icons.chevron_left),
+        ),
+        IconButton(
+          onPressed: hasNext ? onNext : null,
+          icon: const Icon(Icons.chevron_right),
+        ),
+      ],
+    );
+  }
+
   Widget byGuestTable() {
     return Card(
       child: Padding(
@@ -77,27 +172,60 @@ class _AdminCostsScreenState extends State<AdminCostsScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             sectionTitle('Coût par utilisateur'),
-            DataTable(
-              columns: const [
-                DataColumn(label: Text('Guest')),
-                DataColumn(label: Text('Events')),
-                DataColumn(label: Text('Succès')),
-                DataColumn(label: Text('Erreurs')),
-                DataColumn(label: Text('Coût total')),
-                DataColumn(label: Text('Coût moyen')),
-              ],
-              rows: byGuest.map((row) {
-                return DataRow(
-                  cells: [
-                    DataCell(Text(row['guest_id']?.toString() ?? '—')),
-                    DataCell(Text(row['total_events']?.toString() ?? '—')),
-                    DataCell(Text(row['success_events']?.toString() ?? '—')),
-                    DataCell(Text(row['failed_events']?.toString() ?? '—')),
-                    DataCell(Text(money(row['total_cost_usd']))),
-                    DataCell(Text(money(row['avg_cost_per_event_usd']))),
-                  ],
-                );
-              }).toList(),
+            paginationControls(
+              label: 'Utilisateurs',
+              page: guestPage,
+              hasNext: byGuest.length == pageSize,
+              onPrevious: () {
+                setState(() {
+                  guestPage--;
+                });
+                loadData();
+              },
+              onNext: () {
+                setState(() {
+                  guestPage++;
+                });
+                loadData();
+              },
+            ),
+            const SizedBox(height: 12),
+            ScrollConfiguration(
+              behavior: const MaterialScrollBehavior().copyWith(
+                dragDevices: {
+                  PointerDeviceKind.mouse,
+                  PointerDeviceKind.touch,
+                  PointerDeviceKind.trackpad,
+                },
+              ),
+              child: Scrollbar(
+                thumbVisibility: true,
+                  child: SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: DataTable(
+                    columns: const [
+                      DataColumn(label: Text('Guest')),
+                      DataColumn(label: Text('Events')),
+                      DataColumn(label: Text('Succès')),
+                      DataColumn(label: Text('Erreurs')),
+                      DataColumn(label: Text('Coût total')),
+                      DataColumn(label: Text('Coût moyen')),
+                    ],
+                    rows: byGuest.map((row) {
+                      return DataRow(
+                        cells: [
+                          DataCell(Text(row['guest_id']?.toString() ?? '—')),
+                          DataCell(Text(row['total_events']?.toString() ?? '—')),
+                          DataCell(Text(row['success_events']?.toString() ?? '—')),
+                          DataCell(Text(row['failed_events']?.toString() ?? '—')),
+                          DataCell(Text(money(row['total_cost_usd']))),
+                          DataCell(Text(money(row['avg_cost_per_event_usd']))),
+                        ],
+                      );
+                    }).toList(),
+                  ),
+                ),
+              ),
             ),
           ],
         ),
@@ -113,27 +241,60 @@ class _AdminCostsScreenState extends State<AdminCostsScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             sectionTitle('Coût par document'),
-            DataTable(
-              columns: const [
-                DataColumn(label: Text('Document')),
-                DataColumn(label: Text('Events')),
-                DataColumn(label: Text('Succès')),
-                DataColumn(label: Text('Pages')),
-                DataColumn(label: Text('PDF bytes')),
-                DataColumn(label: Text('Coût total')),
-              ],
-              rows: byDocument.map((row) {
-                return DataRow(
-                  cells: [
-                    DataCell(Text(row['document_id']?.toString() ?? '—')),
-                    DataCell(Text(row['total_events']?.toString() ?? '—')),
-                    DataCell(Text(row['success']?.toString() ?? '—')),
-                    DataCell(Text(row['pages']?.toString() ?? '—')),
-                    DataCell(Text(row['pdf_size_bytes']?.toString() ?? '—')),
-                    DataCell(Text(money(row['total_cost_usd']))),
-                  ],
-                );
-              }).toList(),
+            paginationControls(
+              label: 'Documents',
+              page: documentPage,
+              hasNext: byDocument.length == pageSize,
+              onPrevious: () {
+                setState(() {
+                  documentPage--;
+                });
+                loadData();
+              },
+              onNext: () {
+                setState(() {
+                  documentPage++;
+                });
+                loadData();
+              },
+            ),
+            const SizedBox(height: 12),
+            ScrollConfiguration(
+              behavior: const MaterialScrollBehavior().copyWith(
+                dragDevices: {
+                  PointerDeviceKind.mouse,
+                  PointerDeviceKind.touch,
+                  PointerDeviceKind.trackpad,
+                },
+              ),
+              child: Scrollbar(
+                  thumbVisibility: true,
+                  child: SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: DataTable(
+                    columns: const [
+                      DataColumn(label: Text('Document')),
+                      DataColumn(label: Text('Events')),
+                      DataColumn(label: Text('Succès')),
+                      DataColumn(label: Text('Pages')),
+                      DataColumn(label: Text('PDF bytes')),
+                      DataColumn(label: Text('Coût total')),
+                    ],
+                    rows: byDocument.map((row) {
+                      return DataRow(
+                        cells: [
+                          DataCell(Text(row['document_id']?.toString() ?? '—')),
+                          DataCell(Text(row['total_events']?.toString() ?? '—')),
+                          DataCell(Text(row['success']?.toString() ?? '—')),
+                          DataCell(Text(row['pages']?.toString() ?? '—')),
+                          DataCell(Text(row['pdf_size_bytes']?.toString() ?? '—')),
+                          DataCell(Text(money(row['total_cost_usd']))),
+                        ],
+                      );
+                    }).toList(),
+                  ),
+                ),
+              ),
             ),
           ],
         ),
@@ -143,17 +304,9 @@ class _AdminCostsScreenState extends State<AdminCostsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Coûts'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.refresh),
-            onPressed: loadData,
-          ),
-        ],
-      ),
-      body: isLoading
+    return AdminLayout(
+      title: 'Vue coûts',
+      child: isLoading
           ? const Center(child: CircularProgressIndicator())
           : error != null
               ? Padding(
@@ -161,10 +314,11 @@ class _AdminCostsScreenState extends State<AdminCostsScreen> {
                   child: Text('Erreur : $error'),
                 )
               : SingleChildScrollView(
-                  padding: const EdgeInsets.all(24),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
+                      filters(),
+                      const SizedBox(height: 24),
                       byGuestTable(),
                       const SizedBox(height: 24),
                       byDocumentTable(),

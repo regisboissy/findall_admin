@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import 'admin_layout.dart';
+
 class AdminVoiceRulesScreenV2 extends StatefulWidget {
   const AdminVoiceRulesScreenV2({super.key});
 
@@ -685,34 +687,47 @@ class _AdminVoiceRulesScreenState extends State<AdminVoiceRulesScreenV2> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final isWide = MediaQuery.of(context).size.width >= 900;
 
-    return Scaffold(
-      appBar: AppBar(
-        leading: IconButton(
-          tooltip: 'Accueil backoffice',
-          icon: const Icon(Icons.arrow_back),
-          onPressed: () {
-            Navigator.of(context).pushReplacementNamed('/admin');
-          },
-        ),
-        title: const Text('Règles vocales'),
-      ),
-      body: Row(
-        children: [
-          Container(
-            width: 380,
-            decoration: BoxDecoration(
-              border: Border(
-                right: BorderSide(color: theme.dividerColor),
-              ),
+    return AdminLayout(
+      title: 'Voice Rules',
+      child: isWide
+          ? Row(
+              children: [
+                SizedBox(
+                  width: 380,
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      border: Border(
+                        right: BorderSide(color: theme.dividerColor),
+                      ),
+                    ),
+                    child: _buildLeftPanel(theme),
+                  ),
+                ),
+                Expanded(
+                  child: _buildRightPanel(theme),
+                ),
+              ],
+            )
+          : Column(
+              children: [
+                SizedBox(
+                  height: 420,
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      border: Border(
+                        bottom: BorderSide(color: theme.dividerColor),
+                      ),
+                    ),
+                    child: _buildLeftPanel(theme),
+                  ),
+                ),
+                Expanded(
+                  child: _buildRightPanel(theme),
+                ),
+              ],
             ),
-            child: _buildLeftPanel(theme),
-          ),
-          Expanded(
-            child: _buildRightPanel(theme),
-          ),
-        ],
-      ),
     );
   }
 }

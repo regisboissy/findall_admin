@@ -181,10 +181,17 @@ class _AdminProvidersScreenState extends State<AdminProvidersScreen> {
             ),
             ElevatedButton(
               onPressed: () async {
+              try {
                 final costEur = double.tryParse(
                   costCtrl.text.trim().replaceAll(',', '.'),
                 );
-                if (costEur == null) return;
+
+                if (costEur == null) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Coût invalide')),
+                  );
+                  return;
+                }
 
                 final month = monthKey(selectedMonth);
                 final fxDate = monthEnd(selectedMonth);
@@ -192,7 +199,6 @@ class _AdminProvidersScreenState extends State<AdminProvidersScreen> {
                 final costUsd = costEur * fxRate;
 
                 if (existing == null) {
-                  // CREATE
                   await supabase.from('provider_usage_snapshots').insert({
                     'provider': provider,
                     'total_cost_usd': costUsd,
@@ -206,9 +212,8 @@ class _AdminProvidersScreenState extends State<AdminProvidersScreen> {
                     'is_validated': true,
                     'source': 'admin_manual',
                     'comment': commentCtrl.text,
-                  });
+                  }).select().single();
                 } else {
-                  // UPDATE
                   await supabase
                       .from('provider_usage_snapshots')
                       .update({
@@ -220,14 +225,29 @@ class _AdminProvidersScreenState extends State<AdminProvidersScreen> {
                         'comment': commentCtrl.text,
                         'is_validated': true,
                       })
-                      .eq('id', existing['id']);
+                      .eq('id', existing['id'])
+                      .select()
+                      .single();
                 }
 
                 if (!mounted) return;
 
                 Navigator.pop(context);
-                loadData();
-              },
+                await loadData();
+
+                if (!mounted) return;
+
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Coût provider enregistré')),
+                );
+              } catch (e) {
+                if (!mounted) return;
+
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text('Erreur sauvegarde : $e')),
+                );
+              }
+            },
               child: const Text('Enregistrer'),
             ),
           ],

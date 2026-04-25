@@ -298,14 +298,13 @@ class _AdminProvidersScreenState extends State<AdminProvidersScreen> {
     final estimated = toDouble(estimatedRow?['total_cost_usd']);
     final real = toDouble(providerRow?['total_cost_usd']);
 
-    double diffUsd = real - estimated;
-    double diffRate = 0;
+    final diffUsd = real - estimated;
+    final diffRate = estimated > 0 ? (diffUsd / estimated) * 100 : 0;
 
-    if (estimated > 0) {
-      diffRate = (diffUsd / estimated) * 100;
-    }
+    final isOverCost = diffUsd > 0;
 
     return Card(
+      color: isOverCost ? Colors.red.shade50 : Colors.green.shade50,
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
@@ -313,12 +312,24 @@ class _AdminProvidersScreenState extends State<AdminProvidersScreen> {
           children: [
             const Text(
               'Comparaison estimé vs réel',
-              style: TextStyle(fontSize: 18),
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+              ),
             ),
             const SizedBox(height: 12),
+            Text('Mois : ${selectedMonth.year}-${selectedMonth.month.toString().padLeft(2, '0')}'),
+            const SizedBox(height: 8),
             Text('Estimé : ${money(estimated)}'),
             Text('Réel : ${money(real)}'),
-            Text('Écart : ${money(diffUsd)} (${diffRate.toStringAsFixed(1)} %)'),
+            const SizedBox(height: 8),
+            Text(
+              'Écart : ${money(diffUsd)} (${diffRate.toStringAsFixed(1)} %)',
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+                color: isOverCost ? Colors.red.shade700 : Colors.green.shade700,
+              ),
+            ),
           ],
         ),
       ),

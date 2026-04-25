@@ -149,7 +149,10 @@ class _AdminProvidersScreenState extends State<AdminProvidersScreen> {
   }
 
   Future<void> openEditDialog(String provider) async {
-    final existing = data[provider];
+    final existingRaw = data[provider];
+    final existing = existingRaw != null
+        ? Map<String, dynamic>.from(existingRaw)
+        : null;
 
     final costCtrl = TextEditingController(
       text: existing?['original_cost']?.toString() ??
@@ -223,6 +226,10 @@ class _AdminProvidersScreenState extends State<AdminProvidersScreen> {
                     'comment': commentCtrl.text,
                   });
                 } else {
+                  if (existing['id'] == null) {
+                    throw Exception('ID manquant pour update');
+                  }
+
                   await supabase
                       .from('provider_usage_snapshots')
                       .update({
@@ -234,7 +241,7 @@ class _AdminProvidersScreenState extends State<AdminProvidersScreen> {
                         'comment': commentCtrl.text,
                         'is_validated': true,
                       })
-                      .eq('id', existing['id']);
+                      .eq('id', existing['id'].toString());
                 }
 
                 if (!mounted) return;

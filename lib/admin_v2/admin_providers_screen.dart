@@ -128,8 +128,9 @@ class _AdminProvidersScreenState extends State<AdminProvidersScreen> {
       final rows = asMapList(res);
 
       final comp = await supabase
-          .from('v_costs_estimated_vs_provider')
-          .select();
+          .from('v_costs_estimated_vs_provider_monthly')
+          .select()
+          .eq('period_month', month);
 
       final compRows = asMapList(comp);
 

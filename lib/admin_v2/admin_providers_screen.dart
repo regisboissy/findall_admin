@@ -68,8 +68,11 @@ class _AdminProvidersScreenState extends State<AdminProvidersScreen> {
     return DateTime(d.year, d.month + 1, 0);
   }
 
+  static bool isDebugProviders = false;
+
   void log(String label, dynamic value) {
-    print('[findAll][providers][$label] ${value.toString()}');
+    if (!isDebugProviders) return;
+    debugPrint('[findAll][providers][$label] ${value.toString()}');
   }
 
   Future<double> fetchEurUsdRate(DateTime date) async {
@@ -80,10 +83,6 @@ class _AdminProvidersScreenState extends State<AdminProvidersScreen> {
     );
 
     final response = await http.get(uri);
-
-    log('FX URL', uri.toString());
-    log('FX STATUS', response.statusCode);
-    log('FX BODY', response.body);
 
     if (response.statusCode != 200) {
       throw Exception('HTTP ${response.statusCode}');
@@ -230,13 +229,6 @@ class _AdminProvidersScreenState extends State<AdminProvidersScreen> {
                 final fxDate = monthEnd(selectedMonth);
                 final fxRate = await fetchEurUsdRate(fxDate);
                 final costUsd = costEur * fxRate;
-
-                log('SAVE PROVIDER', provider);
-                log('SAVE EUR', costEur);
-                log('SAVE FX RATE', fxRate);
-                log('SAVE USD', costUsd);
-                log('SAVE EXISTING TYPE', existing.runtimeType);
-                log('SAVE EXISTING', existing);
 
                 if (existing == null) {
                   await supabase.from('provider_usage_snapshots').insert({

@@ -14,8 +14,16 @@ class _AdminProvidersScreenState extends State<AdminProvidersScreen> {
   bool isLoading = true;
   String? error;
 
-  List<Map<String, dynamic>> snapshots = [];
-  List<Map<String, dynamic>> comparison = [];
+  DateTime selectedMonth = DateTime.now();
+
+  final List<String> providers = [
+    'google_vision',
+    'openai',
+    'railway',
+    'supabase',
+  ];
+
+  Map<String, Map<String, dynamic>?> data = {};
 
   @override
   void initState() {
@@ -29,6 +37,10 @@ class _AdminProvidersScreenState extends State<AdminProvidersScreen> {
     return '${number.toStringAsFixed(4)} \$';
   }
 
+  String monthKey(DateTime d) {
+    return "${d.year}-${d.month.toString().padLeft(2, '0')}-01";
+  }
+
   Future<void> loadData() async {
     setState(() {
       isLoading = true;
@@ -36,19 +48,27 @@ class _AdminProvidersScreenState extends State<AdminProvidersScreen> {
     });
 
     try {
-      final snap = await supabase
+      final month = monthKey(selectedMonth);
+
+      final res = await supabase
           .from('provider_usage_snapshots')
           .select()
-          .order('created_at', ascending: false)
-          .limit(50);
+          .eq('period_month', month);
 
-      final comp = await supabase
-          .from('v_costs_estimated_vs_provider')
-          .select();
+      final rows = List<Map<String, dynamic>>.from(res);
+
+      final map = <String, Map<String, dynamic>?>{};
+
+      for (final p in providers) {
+        map[p] = rows.firstWhere(
+          (e) => e['provider'] == p,
+          orElse: () => {},
+        );
+        if (map[p]!.isEmpty) map[p] = null;
+      }
 
       setState(() {
-        snapshots = List<Map<String, dynamic>>.from(snap);
-        comparison = List<Map<String, dynamic>>.from(comp);
+        data = map;
         isLoading = false;
       });
     } catch (e) {
@@ -59,27 +79,36 @@ class _AdminProvidersScreenState extends State<AdminProvidersScreen> {
     }
   }
 
-  void openAddDialog() {
-    final providerCtrl = TextEditingController();
-    final costCtrl = TextEditingController();
+  Future<void> openEditDialog(String provider) async {
+    final existing = data[provider];
+
+    final costCtrl = TextEditingController(
+      text: existing?['total_cost_usd']?.toString() ?? '',
+    );
+
+    final commentCtrl = TextEditingController(
+      text: existing?['comment']?.toString() ?? '',
+    );
 
     showDialog(
       context: context,
-      builder: (context) {
+      builder: (_) {
         return AlertDialog(
-          title: const Text('Ajouter un snapshot'),
+          title: Text(existing == null
+              ? 'Créer $provider'
+              : 'Modifier $provider'),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               TextField(
-                controller: providerCtrl,
-                decoration: const InputDecoration(labelText: 'Provider (openai, google_vision, railway, supabase)'),
-              ),
-              const SizedBox(height: 12),
-              TextField(
                 controller: costCtrl,
                 keyboardType: TextInputType.number,
                 decoration: const InputDecoration(labelText: 'Coût USD'),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: commentCtrl,
+                decoration: const InputDecoration(labelText: 'Commentaire'),
               ),
             ],
           ),
@@ -90,19 +119,38 @@ class _AdminProvidersScreenState extends State<AdminProvidersScreen> {
             ),
             ElevatedButton(
               onPressed: () async {
-                final provider = providerCtrl.text.trim();
                 final cost = double.tryParse(costCtrl.text.trim());
+                if (cost == null) return;
 
-                if (provider.isEmpty || cost == null) return;
+                final month = monthKey(selectedMonth);
 
-                await supabase.from('provider_usage_snapshots').insert({
-                  'provider': provider,
-                  'total_cost_usd': cost,
-                });
+                if (existing == null) {
+                  // CREATE
+                  await supabase.from('provider_usage_snapshots').insert({
+                    'provider': provider,
+                    'total_cost_usd': cost,
+                    'period_start': month,
+                    'period_end': month,
+                    'period_month': month,
+                    'is_validated': true,
+                    'source': 'admin_manual',
+                    'comment': commentCtrl.text,
+                  });
+                } else {
+                  // UPDATE
+                  await supabase
+                      .from('provider_usage_snapshots')
+                      .update({
+                        'total_cost_usd': cost,
+                        'comment': commentCtrl.text,
+                        'is_validated': true,
+                      })
+                      .eq('id', existing['id']);
+                }
 
                 if (!mounted) return;
 
-                Navigator.pop(this.context);
+                Navigator.pop(context);
                 loadData();
               },
               child: const Text('Enregistrer'),
@@ -113,74 +161,70 @@ class _AdminProvidersScreenState extends State<AdminProvidersScreen> {
     );
   }
 
-  Widget comparisonBlock() {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text('Comparaison estimé vs réel', style: TextStyle(fontSize: 18)),
-            const SizedBox(height: 12),
-            ...comparison.map((row) {
-              return Padding(
-                padding: const EdgeInsets.only(bottom: 8),
-                child: Text(
-                  "${row['source']} → ${money(row['total_cost_usd'])}",
-                ),
-              );
-            }),
-          ],
+  Widget monthSelector() {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Text(
+          "${selectedMonth.year}-${selectedMonth.month.toString().padLeft(2, '0')}",
+          style: const TextStyle(fontSize: 18),
         ),
-      ),
+        Row(
+          children: [
+            IconButton(
+              icon: const Icon(Icons.chevron_left),
+              onPressed: () {
+                setState(() {
+                  selectedMonth =
+                      DateTime(selectedMonth.year, selectedMonth.month - 1);
+                });
+                loadData();
+              },
+            ),
+            IconButton(
+              icon: const Icon(Icons.chevron_right),
+              onPressed: () {
+                setState(() {
+                  selectedMonth =
+                      DateTime(selectedMonth.year, selectedMonth.month + 1);
+                });
+                loadData();
+              },
+            ),
+          ],
+        )
+      ],
     );
   }
 
-  Widget snapshotsTable() {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text('Snapshots providers', style: TextStyle(fontSize: 18)),
-            const SizedBox(height: 12),
-            DataTable(
-              columns: const [
-                DataColumn(label: Text('Date')),
-                DataColumn(label: Text('Provider')),
-                DataColumn(label: Text('Coût')),
-              ],
-              rows: snapshots.map((row) {
-                return DataRow(cells: [
-                  DataCell(Text(row['created_at']?.toString() ?? '—')),
-                  DataCell(Text(row['provider']?.toString() ?? '—')),
-                  DataCell(Text(money(row['total_cost_usd']))),
-                ]);
-              }).toList(),
+  Widget table() {
+    return DataTable(
+      columns: const [
+        DataColumn(label: Text('Provider')),
+        DataColumn(label: Text('Coût')),
+        DataColumn(label: Text('Action')),
+      ],
+      rows: providers.map((p) {
+        final row = data[p];
+
+        return DataRow(cells: [
+          DataCell(Text(p)),
+          DataCell(Text(money(row?['total_cost_usd']))),
+          DataCell(
+            ElevatedButton(
+              onPressed: () => openEditDialog(p),
+              child: Text(row == null ? 'Créer' : 'Modifier'),
             ),
-          ],
-        ),
-      ),
+          ),
+        ]);
+      }).toList(),
     );
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Providers'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.refresh),
-            onPressed: loadData,
-          ),
-          IconButton(
-            icon: const Icon(Icons.add),
-            onPressed: openAddDialog,
-          ),
-        ],
-      ),
+      appBar: AppBar(title: const Text('Providers')),
       body: isLoading
           ? const Center(child: CircularProgressIndicator())
           : error != null
@@ -188,13 +232,14 @@ class _AdminProvidersScreenState extends State<AdminProvidersScreen> {
                   padding: const EdgeInsets.all(24),
                   child: Text('Erreur : $error'),
                 )
-              : SingleChildScrollView(
+              : Padding(
                   padding: const EdgeInsets.all(24),
                   child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      comparisonBlock(),
+                      monthSelector(),
                       const SizedBox(height: 24),
-                      snapshotsTable(),
+                      table(),
                     ],
                   ),
                 ),

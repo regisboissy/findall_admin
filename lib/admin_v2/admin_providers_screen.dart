@@ -80,48 +80,36 @@ class _AdminProvidersScreenState extends State<AdminProvidersScreen> {
     );
 
     final response = await http.get(uri);
+
     log('FX URL', uri.toString());
     log('FX STATUS', response.statusCode);
     log('FX BODY', response.body);
 
     if (response.statusCode != 200) {
-      throw Exception(
-        'Impossible de récupérer le taux EUR/USD : HTTP ${response.statusCode} - ${response.body}',
-      );
+      throw Exception('HTTP ${response.statusCode}');
     }
 
-    final dynamic decoded = jsonDecode(response.body);
-    log('FX DECODED TYPE', decoded.runtimeType);
-    log('FX DECODED', decoded);
+    final decoded = jsonDecode(response.body);
 
+    // 👉 CAS 1 : LIST (ton cas actuel)
+    if (decoded is List && decoded.isNotEmpty) {
+      final first = decoded.first;
 
-    if (decoded is! Map) {
-      throw Exception(
-        'Réponse taux inattendue : ${decoded.runtimeType} - ${response.body}',
-      );
+      if (first is Map && first['rate'] is num) {
+        return (first['rate'] as num).toDouble();
+      }
     }
 
-    final dynamic ratesRaw = decoded['rates'];
-    log('FX RATES TYPE', ratesRaw.runtimeType);
-    log('FX RATES', ratesRaw);
+    // 👉 CAS 2 : MAP (fallback possible API)
+    if (decoded is Map) {
+      final rates = decoded['rates'];
 
-    if (ratesRaw is! Map) {
-      throw Exception(
-        'Bloc rates introuvable dans la réponse : ${response.body}',
-      );
+      if (rates is Map && rates['USD'] is num) {
+        return (rates['USD'] as num).toDouble();
+      }
     }
 
-    final dynamic usdRaw = ratesRaw['USD'];
-    log('FX USD TYPE', usdRaw.runtimeType);
-    log('FX USD', usdRaw);
-
-    if (usdRaw is num) {
-      return usdRaw.toDouble();
-    }
-
-    throw Exception(
-      'Taux USD introuvable dans la réponse : ${response.body}',
-    );
+    throw Exception('Format FX inattendu : $decoded');
   }
 
   Future<void> loadData() async {

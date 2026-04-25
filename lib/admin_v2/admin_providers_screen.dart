@@ -47,6 +47,15 @@ class _AdminProvidersScreenState extends State<AdminProvidersScreen> {
     return double.tryParse(value?.toString() ?? '') ?? 0;
   }
 
+  List<Map<String, dynamic>> asMapList(dynamic value) {
+    if (value is! List) return [];
+
+    return value
+        .whereType<Map>()
+        .map((row) => Map<String, dynamic>.from(row))
+        .toList();
+  }
+
   String monthKey(DateTime d) {
     return "${d.year}-${d.month.toString().padLeft(2, '0')}-01";
   }
@@ -97,13 +106,13 @@ class _AdminProvidersScreenState extends State<AdminProvidersScreen> {
           .select()
           .eq('period_month', month);
 
-      final rows = List<Map<String, dynamic>>.from(res);
+      final rows = asMapList(res);
 
       final comp = await supabase
           .from('v_costs_estimated_vs_provider')
           .select();
 
-      final compRows = List<Map<String, dynamic>>.from(comp);
+      final compRows = asMapList(comp);
 
       final estimated = compRows.firstWhere(
         (row) => row['source'] == 'estimated',

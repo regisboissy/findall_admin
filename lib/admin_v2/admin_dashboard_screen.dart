@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import 'admin_layout.dart';
+
 class AdminDashboardScreen extends StatefulWidget {
   const AdminDashboardScreen({super.key});
 
@@ -240,18 +242,9 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('findAll Admin'),
-        actions: [
-          IconButton(
-            tooltip: 'Rafraîchir',
-            icon: const Icon(Icons.refresh),
-            onPressed: loadData,
-          ),
-        ],
-      ),
-      body: isLoading
+    return AdminLayout(
+      title: 'Dashboard',
+      child: isLoading
           ? const Center(child: CircularProgressIndicator())
           : error != null
               ? Padding(

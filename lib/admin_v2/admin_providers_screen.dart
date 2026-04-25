@@ -1,4 +1,7 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 class AdminProvidersScreen extends StatefulWidget {
@@ -24,6 +27,8 @@ class _AdminProvidersScreenState extends State<AdminProvidersScreen> {
   ];
 
   Map<String, Map<String, dynamic>?> data = {};
+  Map<String, dynamic>? estimatedRow;
+  Map<String, dynamic>? providerRow;
 
   @override
   void initState() {
@@ -37,8 +42,45 @@ class _AdminProvidersScreenState extends State<AdminProvidersScreen> {
     return '${number.toStringAsFixed(4)} \$';
   }
 
+  double toDouble(dynamic value) {
+    if (value is num) return value.toDouble();
+    return double.tryParse(value?.toString() ?? '') ?? 0;
+  }
+
   String monthKey(DateTime d) {
     return "${d.year}-${d.month.toString().padLeft(2, '0')}-01";
+  }
+
+  String dateKey(DateTime d) {
+    return "${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}";
+  }
+
+  DateTime monthEnd(DateTime d) {
+    return DateTime(d.year, d.month + 1, 0);
+  }
+
+  Future<double> fetchEurUsdRate(DateTime date) async {
+    final fxDate = dateKey(date);
+
+    final uri = Uri.parse(
+      'https://api.frankfurter.dev/v2/rates?date=$fxDate&base=EUR&quotes=USD',
+    );
+
+    final response = await http.get(uri);
+
+    if (response.statusCode != 200) {
+      throw Exception('Impossible de récupérer le taux EUR/USD');
+    }
+
+    final decoded = jsonDecode(response.body) as Map<String, dynamic>;
+    final rates = decoded['rates'] as Map<String, dynamic>;
+    final usd = rates['USD'];
+
+    if (usd is num) {
+      return usd.toDouble();
+    }
+
+    throw Exception('Taux EUR/USD introuvable');
   }
 
   Future<void> loadData() async {
@@ -57,6 +99,22 @@ class _AdminProvidersScreenState extends State<AdminProvidersScreen> {
 
       final rows = List<Map<String, dynamic>>.from(res);
 
+      final comp = await supabase
+          .from('v_costs_estimated_vs_provider')
+          .select();
+
+      final compRows = List<Map<String, dynamic>>.from(comp);
+
+      final estimated = compRows.firstWhere(
+        (row) => row['source'] == 'estimated',
+        orElse: () => {},
+      );
+
+      final provider = compRows.firstWhere(
+        (row) => row['source'] == 'provider',
+        orElse: () => {},
+      );
+
       final map = <String, Map<String, dynamic>?>{};
 
       for (final p in providers) {
@@ -69,6 +127,8 @@ class _AdminProvidersScreenState extends State<AdminProvidersScreen> {
 
       setState(() {
         data = map;
+        estimatedRow = estimated.isEmpty ? null : estimated;
+        providerRow = provider.isEmpty ? null : provider;
         isLoading = false;
       });
     } catch (e) {
@@ -83,7 +143,9 @@ class _AdminProvidersScreenState extends State<AdminProvidersScreen> {
     final existing = data[provider];
 
     final costCtrl = TextEditingController(
-      text: existing?['total_cost_usd']?.toString() ?? '',
+      text: existing?['original_cost']?.toString() ??
+          existing?['total_cost_usd']?.toString() ??
+          '',
     );
 
     final commentCtrl = TextEditingController(
@@ -103,7 +165,7 @@ class _AdminProvidersScreenState extends State<AdminProvidersScreen> {
               TextField(
                 controller: costCtrl,
                 keyboardType: TextInputType.number,
-                decoration: const InputDecoration(labelText: 'Coût USD'),
+                decoration: const InputDecoration(labelText: 'Coût réel en €'),
               ),
               const SizedBox(height: 12),
               TextField(
@@ -119,18 +181,27 @@ class _AdminProvidersScreenState extends State<AdminProvidersScreen> {
             ),
             ElevatedButton(
               onPressed: () async {
-                final cost = double.tryParse(costCtrl.text.trim());
-                if (cost == null) return;
+                final costEur = double.tryParse(
+                  costCtrl.text.trim().replaceAll(',', '.'),
+                );
+                if (costEur == null) return;
 
                 final month = monthKey(selectedMonth);
+                final fxDate = monthEnd(selectedMonth);
+                final fxRate = await fetchEurUsdRate(fxDate);
+                final costUsd = costEur * fxRate;
 
                 if (existing == null) {
                   // CREATE
                   await supabase.from('provider_usage_snapshots').insert({
                     'provider': provider,
-                    'total_cost_usd': cost,
+                    'total_cost_usd': costUsd,
+                    'original_cost': costEur,
+                    'original_currency': 'EUR',
+                    'fx_rate_eur_usd': fxRate,
+                    'fx_rate_date': dateKey(fxDate),
                     'period_start': month,
-                    'period_end': month,
+                    'period_end': dateKey(fxDate),
                     'period_month': month,
                     'is_validated': true,
                     'source': 'admin_manual',
@@ -141,7 +212,11 @@ class _AdminProvidersScreenState extends State<AdminProvidersScreen> {
                   await supabase
                       .from('provider_usage_snapshots')
                       .update({
-                        'total_cost_usd': cost,
+                        'total_cost_usd': costUsd,
+                        'original_cost': costEur,
+                        'original_currency': 'EUR',
+                        'fx_rate_eur_usd': fxRate,
+                        'fx_rate_date': dateKey(fxDate),
                         'comment': commentCtrl.text,
                         'is_validated': true,
                       })
@@ -158,6 +233,37 @@ class _AdminProvidersScreenState extends State<AdminProvidersScreen> {
           ],
         );
       },
+    );
+  }
+
+  Widget comparisonBlock() {
+    final estimated = toDouble(estimatedRow?['total_cost_usd']);
+    final real = toDouble(providerRow?['total_cost_usd']);
+
+    double diffUsd = real - estimated;
+    double diffRate = 0;
+
+    if (estimated > 0) {
+      diffRate = (diffUsd / estimated) * 100;
+    }
+
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Comparaison estimé vs réel',
+              style: TextStyle(fontSize: 18),
+            ),
+            const SizedBox(height: 12),
+            Text('Estimé : ${money(estimated)}'),
+            Text('Réel : ${money(real)}'),
+            Text('Écart : ${money(diffUsd)} (${diffRate.toStringAsFixed(1)} %)'),
+          ],
+        ),
+      ),
     );
   }
 
@@ -238,6 +344,8 @@ class _AdminProvidersScreenState extends State<AdminProvidersScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       monthSelector(),
+                      const SizedBox(height: 24),
+                      comparisonBlock(),
                       const SizedBox(height: 24),
                       table(),
                     ],

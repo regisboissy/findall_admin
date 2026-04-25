@@ -69,8 +69,7 @@ class _AdminProvidersScreenState extends State<AdminProvidersScreen> {
   }
 
   void log(String label, dynamic value) {
-    debugPrint('--- $label ---');
-    debugPrint(value.toString());
+    print('[findAll][providers][$label] ${value.toString()}');
   }
 
   Future<double> fetchEurUsdRate(DateTime date) async {
@@ -227,6 +226,7 @@ class _AdminProvidersScreenState extends State<AdminProvidersScreen> {
             ElevatedButton(
               onPressed: () async {
               try {
+                log('SAVE CLICK', provider);
                 final costEur = double.tryParse(
                   costCtrl.text.trim().replaceAll(',', '.'),
                 );

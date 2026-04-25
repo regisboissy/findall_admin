@@ -77,14 +77,18 @@ class _AdminDrawer extends StatelessWidget {
 class _MenuContent extends StatelessWidget {
   const _MenuContent();
 
-  Widget sectionTitle(String text) {
+  String currentRoute(BuildContext context) {
+    return ModalRoute.of(context)?.settings.name ?? '';
+  }
+
+  Widget section(String title) {
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 20, 16, 8),
       child: Text(
-        text,
+        title,
         style: const TextStyle(
           fontWeight: FontWeight.bold,
-          fontSize: 13,
+          fontSize: 12,
           color: Colors.grey,
         ),
       ),
@@ -97,12 +101,31 @@ class _MenuContent extends StatelessWidget {
     String route,
     IconData icon,
   ) {
+    final isActive = currentRoute(context) == route;
+
     return ListTile(
       leading: Icon(icon),
       title: Text(label),
+      selected: isActive,
+      selectedTileColor: Colors.grey.shade200,
       onTap: () {
-        Navigator.pushReplacementNamed(context, route);
+        if (!isActive) {
+          Navigator.pushReplacementNamed(context, route);
+        }
+
+        // ferme le drawer en mobile
+        if (Scaffold.of(context).isDrawerOpen) {
+          Navigator.pop(context);
+        }
       },
+    );
+  }
+
+  Widget disabledItem(String label, IconData icon) {
+    return ListTile(
+      leading: Icon(icon, color: Colors.grey),
+      title: Text(label, style: const TextStyle(color: Colors.grey)),
+      enabled: false,
     );
   }
 
@@ -120,18 +143,24 @@ class _MenuContent extends StatelessWidget {
           ),
         ),
 
-        sectionTitle('Pilotage des coûts'),
-        item(context, 'Coûts', '/admin-costs', Icons.table_chart),
+        section('Accueil'),
+        item(context, 'Cockpit', '/admin', Icons.dashboard),
+
+        section('Coûts'),
+        item(context, 'Vue coûts', '/admin-costs', Icons.table_chart),
         item(context, 'Providers', '/admin-providers', Icons.cloud),
 
-        sectionTitle('Données utilisateur'),
+        section('Données'),
         item(context, 'Documents', '/admin-docs', Icons.description),
+        disabledItem('Utilisateurs', Icons.people_outline),
 
-        sectionTitle('Fonctionnalités'),
+        section('Fonctionnalités'),
         item(context, 'Voice Rules', '/admin-voice', Icons.mic),
+        disabledItem('Limites & plans', Icons.lock_clock),
 
-        sectionTitle('Logs & traitements'),
+        section('Supervision'),
         item(context, 'Jobs', '/admin-jobs', Icons.work_history),
+        disabledItem('Services tiers', Icons.health_and_safety),
 
         const Divider(),
 
@@ -139,7 +168,7 @@ class _MenuContent extends StatelessWidget {
           leading: const Icon(Icons.logout),
           title: const Text('Déconnexion'),
           onTap: () {
-            // on fera le logout plus tard
+            // on fera logout ensuite
           },
         ),
       ],

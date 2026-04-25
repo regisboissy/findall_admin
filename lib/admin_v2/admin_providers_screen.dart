@@ -212,7 +212,9 @@ class _AdminProvidersScreenState extends State<AdminProvidersScreen> {
                     'is_validated': true,
                     'source': 'admin_manual',
                     'comment': commentCtrl.text,
-                  }).select().single();
+                  })
+                  .select()
+                  .maybeSingle();
                 } else {
                   await supabase
                       .from('provider_usage_snapshots')
@@ -227,7 +229,7 @@ class _AdminProvidersScreenState extends State<AdminProvidersScreen> {
                       })
                       .eq('id', existing['id'])
                       .select()
-                      .single();
+                      .maybeSingle();
                 }
 
                 if (!mounted) return;

@@ -58,7 +58,8 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     required String value,
     required IconData icon,
   }) {
-    return Expanded(
+    return SizedBox(
+      width: 280,
       child: Card(
         child: Padding(
           padding: const EdgeInsets.all(18),
@@ -144,6 +145,20 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     final totalEvents = data?['total_events']?.toString() ?? '—';
     final failedEvents = data?['failed_events']?.toString() ?? '—';
     final totalCost = money(data?['total_cost_usd']);
+    final totalEventsNum =
+        (data?['total_events'] as num?)?.toDouble() ?? 0;
+
+    final failedEventsNum =
+        (data?['failed_events'] as num?)?.toDouble() ?? 0;
+
+    final totalCostNum =
+        (data?['total_cost_usd'] as num?)?.toDouble() ?? 0;
+
+    final failureRate =
+        totalEventsNum == 0 ? 0 : (failedEventsNum / totalEventsNum) * 100;
+
+    final avgCost =
+        totalEventsNum == 0 ? 0 : totalCostNum / totalEventsNum;
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(24),
@@ -160,24 +175,35 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
           ),
           const SizedBox(height: 24),
 
-          Row(
+          Wrap(
+            spacing: 16,
+            runSpacing: 16,
             children: [
               _summaryCard(
                 title: 'Événements traités',
                 value: totalEvents,
                 icon: Icons.analytics_outlined,
               ),
-              const SizedBox(width: 16),
               _summaryCard(
                 title: 'Échecs',
                 value: failedEvents,
                 icon: Icons.warning_amber_outlined,
               ),
-              const SizedBox(width: 16),
               _summaryCard(
                 title: 'Coût estimé total',
                 value: totalCost,
                 icon: Icons.payments_outlined,
+              ),
+              _summaryCard(
+                title: 'Taux échec',
+                value: '${failureRate.toStringAsFixed(1)} %',
+                icon: Icons.error_outline,
+              ),
+
+              _summaryCard(
+                title: 'Coût moyen / event',
+                value: money(avgCost),
+                icon: Icons.show_chart,
               ),
             ],
           ),

@@ -69,7 +69,7 @@ class _AdminVoiceRulesScreenState extends State<AdminVoiceRulesScreenV2> {
       setState(() {
         _rules = rules;
         _selectedRule = rules.isNotEmpty ? rules.first : null;
-        _rulesDisplayLimit = 5; // 🔥 RESET CENTRAL
+        _rulesDisplayLimit = 5; // 🔥 RESET CENTRALISEE
         _isLoading = false;
       });
     } catch (e) {

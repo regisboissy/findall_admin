@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 class AdminLayout extends StatelessWidget {
   final String title;
@@ -109,13 +110,15 @@ class _MenuContent extends StatelessWidget {
       selected: isActive,
       selectedTileColor: Colors.grey.shade200,
       onTap: () {
-        if (!isActive) {
-          Navigator.pushReplacementNamed(context, route);
+        final navigator = Navigator.of(context);
+        final scaffold = Scaffold.maybeOf(context);
+
+        if (scaffold?.isDrawerOpen ?? false) {
+          navigator.pop(); // ferme le drawer
         }
 
-        // ferme le drawer en mobile
-        if (Scaffold.of(context).isDrawerOpen) {
-          Navigator.pop(context);
+        if (!isActive) {
+          navigator.pushReplacementNamed(route);
         }
       },
     );
@@ -167,8 +170,15 @@ class _MenuContent extends StatelessWidget {
         ListTile(
           leading: const Icon(Icons.logout),
           title: const Text('Déconnexion'),
-          onTap: () {
-            // on fera logout ensuite
+          onTap: () async {
+            final navigator = Navigator.of(context);
+
+            await Supabase.instance.client.auth.signOut();
+
+            navigator.pushNamedAndRemoveUntil(
+              '/login',
+              (route) => false,
+            );
           },
         ),
       ],

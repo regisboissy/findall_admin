@@ -58,16 +58,32 @@ class _AdminLoginScreenState extends State<AdminLoginScreen> {
                   ),
                   const SizedBox(height: 24),
 
-                  TextField(
-                    controller: emailCtrl,
-                    decoration: const InputDecoration(labelText: 'Email'),
-                  ),
-                  const SizedBox(height: 12),
+                  AutofillGroup(
+                    child: Column(
+                      children: [
+                        TextField(
+                          controller: emailCtrl,
+                          autofillHints: const [AutofillHints.username, AutofillHints.email],
+                          keyboardType: TextInputType.emailAddress,
+                          textInputAction: TextInputAction.next,
+                          decoration: const InputDecoration(
+                            labelText: 'Email',
+                          ),
+                        ),
+                        const SizedBox(height: 12),
 
-                  TextField(
-                    controller: passwordCtrl,
-                    obscureText: true,
-                    decoration: const InputDecoration(labelText: 'Mot de passe'),
+                        TextField(
+                          controller: passwordCtrl,
+                          obscureText: true,
+                          autofillHints: const [AutofillHints.password],
+                          textInputAction: TextInputAction.done,
+                          onSubmitted: (_) => login(),
+                          decoration: const InputDecoration(
+                            labelText: 'Mot de passe',
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
 
                   const SizedBox(height: 20),

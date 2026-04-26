@@ -20,63 +20,93 @@ Future<void> main() async {
   runApp(const MyApp());
 }
 
-class AuthGate extends StatefulWidget {
+class AuthGate extends StatelessWidget {
   const AuthGate({super.key});
 
   @override
-    State<AuthGate> createState() => _AuthGateState();
-  }
-
-  class _AuthGateState extends State<AuthGate> {
+  Widget build(BuildContext context) {
     final supabase = Supabase.instance.client;
 
-    bool isLoading = true;
-    bool isAdmin = false;
+    return StreamBuilder<AuthState>(
+      stream: supabase.auth.onAuthStateChange,
+      builder: (context, snapshot) {
+        final session = supabase.auth.currentSession;
 
-    @override
-    void initState() {
-      super.initState();
-      checkAdmin();
-    }
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Scaffold(
+            body: Center(child: CircularProgressIndicator()),
+          );
+        }
 
-    Future<void> checkAdmin() async {
-      final user = supabase.auth.currentUser;
+        if (session == null) {
+          return const AdminLoginScreen();
+        }
 
-      if (user == null) {
-        setState(() {
-          isLoading = false;
-          isAdmin = false;
-        });
-        return;
-      }
-
-      final resp = await supabase
-          .from('profiles')
-          .select('is_admin')
-          .eq('id', user.id)
-          .maybeSingle();
-
-      setState(() {
-        isAdmin = resp?['is_admin'] == true;
-        isLoading = false;
-      });
-    }
-
-    @override
-    Widget build(BuildContext context) {
-      if (isLoading) {
-        return const Scaffold(
-          body: Center(child: CircularProgressIndicator()),
-        );
-      }
-
-      if (!isAdmin) {
-        return const AdminLoginScreen();
-      }
-
-      return const AdminDashboardScreen();
-    }
+        return const _AdminCheck();
+      },
+    );
   }
+}
+
+class _AdminCheck extends StatefulWidget {
+  const _AdminCheck();
+
+  @override
+  State<_AdminCheck> createState() => _AdminCheckState();
+}
+
+class _AdminCheckState extends State<_AdminCheck> {
+  final supabase = Supabase.instance.client;
+
+  bool isLoading = true;
+  bool isAdmin = false;
+
+  @override
+  void initState() {
+    super.initState();
+    checkAdmin();
+  }
+
+  Future<void> checkAdmin() async {
+    final user = supabase.auth.currentUser;
+
+    if (user == null) {
+      setState(() {
+        isLoading = false;
+        isAdmin = false;
+      });
+      return;
+    }
+
+    final resp = await supabase
+        .from('profiles')
+        .select('is_admin')
+        .eq('id', user.id)
+        .maybeSingle();
+
+    if (!mounted) return;
+
+    setState(() {
+      isAdmin = resp?['is_admin'] == true;
+      isLoading = false;
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (isLoading) {
+      return const Scaffold(
+        body: Center(child: CircularProgressIndicator()),
+      );
+    }
+
+    if (!isAdmin) {
+      return const AdminLoginScreen();
+    }
+
+    return const AdminDashboardScreen();
+  }
+}
 
 class MyApp extends StatelessWidget {
   const MyApp({super.key});

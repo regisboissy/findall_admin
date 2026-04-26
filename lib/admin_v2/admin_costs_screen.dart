@@ -302,6 +302,87 @@ class _AdminCostsScreenState extends State<AdminCostsScreen> {
     );
   }
 
+  Widget mobileGuestCosts() {
+    return ListView.builder(
+      itemCount: byGuest.length,
+      itemBuilder: (context, index) {
+        final row = byGuest[index];
+
+        return Card(
+          margin: const EdgeInsets.only(bottom: 12),
+          child: Padding(
+            padding: const EdgeInsets.all(14),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  row['guest_id']?.toString() ?? '—',
+                  style: const TextStyle(fontWeight: FontWeight.w700),
+                ),
+                const SizedBox(height: 8),
+
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    Chip(label: Text('Events ${row['total_events'] ?? '—'}')),
+                    Chip(label: Text('OK ${row['success_events'] ?? '—'}')),
+                    Chip(label: Text('KO ${row['failed_events'] ?? '—'}')),
+                  ],
+                ),
+
+                const SizedBox(height: 8),
+
+                Text('Coût total : ${money(row['total_cost_usd'])}'),
+                Text('Coût moyen : ${money(row['avg_cost_per_event_usd'])}'),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget mobileDocumentCosts() {
+    return ListView.builder(
+      itemCount: byDocument.length,
+      itemBuilder: (context, index) {
+        final row = byDocument[index];
+
+        return Card(
+          margin: const EdgeInsets.only(bottom: 12),
+          child: Padding(
+            padding: const EdgeInsets.all(14),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  row['document_id']?.toString() ?? '—',
+                  style: const TextStyle(fontWeight: FontWeight.w700),
+                ),
+                const SizedBox(height: 8),
+
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    Chip(label: Text('Events ${row['total_events'] ?? '—'}')),
+                    Chip(label: Text('Pages ${row['pages'] ?? '—'}')),
+                  ],
+                ),
+
+                const SizedBox(height: 8),
+
+                Text('Taille PDF : ${row['pdf_size_bytes'] ?? '—'}'),
+                Text('Coût total : ${money(row['total_cost_usd'])}'),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return AdminLayout(
@@ -313,17 +394,58 @@ class _AdminCostsScreenState extends State<AdminCostsScreen> {
                   padding: const EdgeInsets.all(24),
                   child: Text('Erreur : $error'),
                 )
-              : SingleChildScrollView(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      filters(),
-                      const SizedBox(height: 24),
-                      byGuestTable(),
-                      const SizedBox(height: 24),
-                      byDocumentTable(),
-                    ],
-                  ),
+              : LayoutBuilder(
+                  builder: (context, constraints) {
+                    final isMobile = constraints.maxWidth < 700;
+
+                    if (isMobile) {
+                      return Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          filters(),
+                          const SizedBox(height: 16),
+
+                          Expanded(
+                            child: DefaultTabController(
+                              length: 2,
+                              child: Column(
+                                children: [
+                                  const TabBar(
+                                    tabs: [
+                                      Tab(text: 'Users'),
+                                      Tab(text: 'Documents'),
+                                    ],
+                                  ),
+                                  Expanded(
+                                    child: TabBarView(
+                                      children: [
+                                        mobileGuestCosts(),
+                                        mobileDocumentCosts(),
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ],
+                      );
+                    }
+
+                    // Desktop = inchangé
+                    return SingleChildScrollView(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          filters(),
+                          const SizedBox(height: 24),
+                          byGuestTable(),
+                          const SizedBox(height: 24),
+                          byDocumentTable(),
+                        ],
+                      ),
+                    );
+                  },
                 ),
     );
   }

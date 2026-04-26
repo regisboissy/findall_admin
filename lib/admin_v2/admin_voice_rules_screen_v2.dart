@@ -18,6 +18,7 @@ class _AdminVoiceRulesScreenState extends State<AdminVoiceRulesScreenV2> {
 
   List<Map<String, dynamic>> _rules = [];
   Map<String, dynamic>? _selectedRule;
+  int _rulesDisplayLimit = 5;
 
   String _languageFilter = 'Toutes';
   String _typeFilter = 'Tous';
@@ -68,6 +69,7 @@ class _AdminVoiceRulesScreenState extends State<AdminVoiceRulesScreenV2> {
       setState(() {
         _rules = rules;
         _selectedRule = rules.isNotEmpty ? rules.first : null;
+        _rulesDisplayLimit = 5; // 🔥 RESET CENTRAL
         _isLoading = false;
       });
     } catch (e) {
@@ -79,6 +81,37 @@ class _AdminVoiceRulesScreenState extends State<AdminVoiceRulesScreenV2> {
   }
 
   List<Map<String, dynamic>> _filteredRules() {
+    final query = _searchQuery.trim().toLowerCase();
+
+    final filtered = _rules.where((rule) {
+      final language = (rule['language'] ?? '').toString();
+      final type = (rule['rule_type'] ?? '').toString();
+      final isActive = rule['is_active'] == true;
+      final value = (rule['value'] ?? '').toString().toLowerCase();
+      final notes = (rule['notes'] ?? '').toString().toLowerCase();
+
+      final matchesLanguage =
+          _languageFilter == 'Toutes' || language == _languageFilter;
+      final matchesType =
+          _typeFilter == 'Tous' || type == _typeFilter;
+      final matchesStatus =
+          _statusFilter == 'Tous' ||
+              (_statusFilter == 'Actives' && isActive) ||
+              (_statusFilter == 'Inactives' && !isActive);
+
+      final matchesSearch =
+          query.isEmpty || value.contains(query) || notes.contains(query);
+
+      return matchesLanguage &&
+          matchesType &&
+          matchesStatus &&
+          matchesSearch;
+    }).toList();
+
+    return filtered.take(_rulesDisplayLimit).toList();
+  }
+
+  int _filteredRulesTotalCount() {
     final query = _searchQuery.trim().toLowerCase();
 
     return _rules.where((rule) {
@@ -94,8 +127,8 @@ class _AdminVoiceRulesScreenState extends State<AdminVoiceRulesScreenV2> {
           _typeFilter == 'Tous' || type == _typeFilter;
       final matchesStatus =
           _statusFilter == 'Tous' ||
-          (_statusFilter == 'Actives' && isActive) ||
-          (_statusFilter == 'Inactives' && !isActive);
+              (_statusFilter == 'Actives' && isActive) ||
+              (_statusFilter == 'Inactives' && !isActive);
 
       final matchesSearch =
           query.isEmpty || value.contains(query) || notes.contains(query);
@@ -104,7 +137,7 @@ class _AdminVoiceRulesScreenState extends State<AdminVoiceRulesScreenV2> {
           matchesType &&
           matchesStatus &&
           matchesSearch;
-    }).toList();
+    }).length;
   }
 
   Future<void> _toggleActive(Map<String, dynamic> rule) async {
@@ -465,6 +498,7 @@ class _AdminVoiceRulesScreenState extends State<AdminVoiceRulesScreenV2> {
             onChanged: (value) {
               setState(() {
                 _searchQuery = value;
+                _rulesDisplayLimit = 5;
               });
             },
           ),
@@ -487,6 +521,7 @@ class _AdminVoiceRulesScreenState extends State<AdminVoiceRulesScreenV2> {
               if (value == null) return;
               setState(() {
                 _languageFilter = value;
+                _rulesDisplayLimit = 5;
               });
             },
           ),
@@ -515,6 +550,7 @@ class _AdminVoiceRulesScreenState extends State<AdminVoiceRulesScreenV2> {
               if (value == null) return;
               setState(() {
                 _typeFilter = value;
+                _rulesDisplayLimit = 5;
               });
             },
           ),
@@ -537,6 +573,7 @@ class _AdminVoiceRulesScreenState extends State<AdminVoiceRulesScreenV2> {
               if (value == null) return;
               setState(() {
                 _statusFilter = value;
+                _rulesDisplayLimit = 5;
               });
             },
           ),
@@ -550,40 +587,61 @@ class _AdminVoiceRulesScreenState extends State<AdminVoiceRulesScreenV2> {
           )
         else
           Expanded(
-            child: ListView.builder(
-              itemCount: visibleRules.length,
-              itemBuilder: (context, index) {
-                final rule = visibleRules[index];
-                final isSelected = _selectedRule?['id'] == rule['id'];
+            child: Column(
+              children: [
+                Expanded(
+                  child: ListView.builder(
+                    itemCount: visibleRules.length,
+                    itemBuilder: (context, index) {
+                      final rule = visibleRules[index];
+                      final isSelected = _selectedRule?['id'] == rule['id'];
 
-                final value = (rule['value'] ?? '').toString();
-                final subtitle =
-                    '${rule['language']} • ${rule['rule_type']} • ordre ${rule['display_order'] ?? 100}';
+                      final value = (rule['value'] ?? '').toString();
+                      final subtitle =
+                          '${rule['language']} • ${rule['rule_type']} • ordre ${rule['display_order'] ?? 100}';
 
-                return Material(
-                  color: isSelected
-                      ? theme.colorScheme.primary.withValues(alpha: 0.08)
-                      : Colors.transparent,
-                  child: ListTile(
-                    selected: isSelected,
-                    title: Text(value),
-                    subtitle: Text(subtitle),
-                    trailing: Chip(
-                      label: Text(
-                        rule['is_active'] == true ? 'Active' : 'Inactive',
-                        style: const TextStyle(color: Colors.white),
-                      ),
-                      backgroundColor:
-                          rule['is_active'] == true ? Colors.green : Colors.grey,
-                    ),
-                    onTap: () {
-                      setState(() {
-                        _selectedRule = rule;
-                      });
+                      return Material(
+                        color: isSelected
+                            ? theme.colorScheme.primary.withValues(alpha: 0.08)
+                            : Colors.transparent,
+                        child: ListTile(
+                          selected: isSelected,
+                          title: Text(value),
+                          subtitle: Text(subtitle),
+                          trailing: Chip(
+                            label: Text(
+                              rule['is_active'] == true ? 'Active' : 'Inactive',
+                              style: const TextStyle(color: Colors.white),
+                            ),
+                            backgroundColor:
+                                rule['is_active'] == true ? Colors.green : Colors.grey,
+                          ),
+                          onTap: () {
+                            setState(() {
+                              _selectedRule = rule;
+                            });
+                          },
+                        ),
+                      );
                     },
                   ),
-                );
-              },
+                ),
+                if (_filteredRulesTotalCount() > visibleRules.length)
+                  Padding(
+                    padding: const EdgeInsets.all(8),
+                    child: OutlinedButton.icon(
+                      onPressed: () {
+                        setState(() {
+                          _rulesDisplayLimit += 5;
+                        });
+                      },
+                      icon: const Icon(Icons.expand_more),
+                      label: Text(
+                        'Voir 5 de plus (${visibleRules.length}/${_filteredRulesTotalCount()})',
+                      ),
+                    ),
+                  ),
+              ],
             ),
           ),
       ],
@@ -684,10 +742,96 @@ class _AdminVoiceRulesScreenState extends State<AdminVoiceRulesScreenV2> {
     );
   }
 
+  Widget mobileView(ThemeData theme) {
+    final rules = _filteredRules();
+
+    if (_selectedRule == null && rules.isNotEmpty) {
+      _selectedRule = rules.first;
+    }
+
+    return Column(
+      children: [
+        // 🔹 Liste
+        Expanded(
+          child: ListView.builder(
+            itemCount: rules.length,
+            itemBuilder: (context, index) {
+              final rule = rules[index];
+              final isSelected = _selectedRule?['id'] == rule['id'];
+
+              return ListTile(
+                selected: isSelected,
+                title: Text(rule['value'] ?? '—'),
+                subtitle: Text('${rule['language']} • ${rule['rule_type']}'),
+                trailing: Chip(
+                  label: Text(
+                    rule['is_active'] ? 'Active' : 'Inactive',
+                    style: const TextStyle(color: Colors.white),
+                  ),
+                  backgroundColor:
+                      rule['is_active'] ? Colors.green : Colors.grey,
+                ),
+                onTap: () {
+                  setState(() {
+                    _selectedRule = rule;
+                  });
+                },
+              );
+            },
+          ),
+        ),
+
+        // 🔹 Détail (compact)
+        if (_selectedRule != null)
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              border: Border(top: BorderSide(color: theme.dividerColor)),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  _selectedRule!['value'] ?? '—',
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Text('Langue : ${_selectedRule!['language']}'),
+                Text('Type : ${_selectedRule!['rule_type']}'),
+                const SizedBox(height: 8),
+
+                Wrap(
+                  spacing: 8,
+                  children: [
+                    ElevatedButton(
+                      onPressed: () =>
+                          _openRuleDialog(rule: _selectedRule),
+                      child: const Text('Modifier'),
+                    ),
+                    OutlinedButton(
+                      onPressed: () => _toggleActive(_selectedRule!),
+                      child: Text(
+                        _selectedRule!['is_active']
+                            ? 'Désactiver'
+                            : 'Activer',
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final isWide = MediaQuery.of(context).size.width >= 900;
+    final width = MediaQuery.of(context).size.width;
+    final isWide = width >= 1100;
 
     return AdminLayout(
       title: 'Voice Rules',
@@ -710,24 +854,7 @@ class _AdminVoiceRulesScreenState extends State<AdminVoiceRulesScreenV2> {
                 ),
               ],
             )
-          : Column(
-              children: [
-                SizedBox(
-                  height: 420,
-                  child: DecoratedBox(
-                    decoration: BoxDecoration(
-                      border: Border(
-                        bottom: BorderSide(color: theme.dividerColor),
-                      ),
-                    ),
-                    child: _buildLeftPanel(theme),
-                  ),
-                ),
-                Expanded(
-                  child: _buildRightPanel(theme),
-                ),
-              ],
-            ),
+          : mobileView(theme),
     );
   }
 }
@@ -752,17 +879,20 @@ class _InfoLine extends StatelessWidget {
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 10),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      child: Wrap(
+        spacing: 12,
+        runSpacing: 4,
+        crossAxisAlignment: WrapCrossAlignment.start,
         children: [
           SizedBox(
-            width: 160,
+            width: 140,
             child: Text(
               label,
               style: const TextStyle(fontWeight: FontWeight.w600),
             ),
           ),
-          Expanded(
+          ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 420),
             child: SelectableText(_display(value)),
           ),
         ],

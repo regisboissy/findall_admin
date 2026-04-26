@@ -205,6 +205,66 @@ class _AdminJobsScreenState extends State<AdminJobsScreen> {
     );
   }
 
+  Widget mobileJobsList() {
+    return ListView.builder(
+      itemCount: jobs.length,
+      itemBuilder: (context, index) {
+        final job = jobs[index];
+        final status = job['status']?.toString();
+
+        return Card(
+          margin: const EdgeInsets.only(bottom: 12),
+          child: Padding(
+            padding: const EdgeInsets.all(14),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  job['job_id']?.toString() ?? '—',
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(height: 8),
+
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    Chip(
+                      label: Text(
+                        status ?? '—',
+                        style: const TextStyle(color: Colors.white),
+                      ),
+                      backgroundColor: statusColor(status),
+                    ),
+                    Chip(
+                      label: Text(job['job_type']?.toString() ?? '—'),
+                    ),
+                  ],
+                ),
+
+                const SizedBox(height: 8),
+
+                Text('Document : ${job['document_id'] ?? '—'}'),
+                Text('Créé le : ${job['created_at'] ?? '—'}'),
+
+                if (job['last_error'] != null)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 6),
+                    child: Text(
+                      'Erreur : ${job['last_error']}',
+                      style: const TextStyle(color: Colors.red),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return AdminLayout(
@@ -216,69 +276,90 @@ class _AdminJobsScreenState extends State<AdminJobsScreen> {
                   padding: const EdgeInsets.all(24),
                   child: Text('Erreur : $error'),
                 )
-              : SingleChildScrollView(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      filters(),
-                      const SizedBox(height: 12),
-                      paginationControls(),
-                      const SizedBox(height: 12),
-                      Card(
-                        child: Padding(
-                          padding: const EdgeInsets.all(16),
-                          child: Scrollbar(
-                            controller: horizontalScrollController,
-                            thumbVisibility: true,
-                            child: SingleChildScrollView(
-                              controller: horizontalScrollController,
-                              scrollDirection: Axis.horizontal,
-                              child: DataTable(
-                                columns: const [
-                                  DataColumn(label: Text('Créé le')),
-                                  DataColumn(label: Text('Job')),
-                                  DataColumn(label: Text('Document')),
-                                  DataColumn(label: Text('Type')),
-                                  DataColumn(label: Text('Statut')),
-                                  DataColumn(label: Text('Erreur')),
-                                ],
-                                rows: jobs.map((job) {
-                                  final status = job['status']?.toString();
+              : LayoutBuilder(
+                  builder: (context, constraints) {
+                    final isMobile = constraints.maxWidth < 700;
 
-                                  return DataRow(
-                                    cells: [
-                                      DataCell(Text(job['created_at']?.toString() ?? '—')),
-                                      DataCell(Text(job['job_id']?.toString() ?? '—')),
-                                      DataCell(Text(job['document_id']?.toString() ?? '—')),
-                                      DataCell(Text(job['job_type']?.toString() ?? '—')),
-                                      DataCell(
-                                        Chip(
-                                          label: Text(
-                                            status ?? '—',
-                                            style: const TextStyle(color: Colors.white),
-                                          ),
-                                          backgroundColor: statusColor(status),
-                                        ),
-                                      ),
-                                      DataCell(
-                                        SizedBox(
-                                          width: 260,
-                                          child: Text(
-                                            job['last_error']?.toString() ?? '—',
-                                            overflow: TextOverflow.ellipsis,
-                                          ),
-                                        ),
-                                      ),
+                    if (isMobile) {
+                      return Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          filters(),
+                          const SizedBox(height: 12),
+                          paginationControls(),
+                          const SizedBox(height: 12),
+                          Expanded(
+                            child: mobileJobsList(),
+                          ),
+                        ],
+                      );
+                    }
+
+                    return SingleChildScrollView(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          filters(),
+                          const SizedBox(height: 12),
+                          paginationControls(),
+                          const SizedBox(height: 12),
+                          Card(
+                            child: Padding(
+                              padding: const EdgeInsets.all(16),
+                              child: Scrollbar(
+                                controller: horizontalScrollController,
+                                thumbVisibility: true,
+                                child: SingleChildScrollView(
+                                  controller: horizontalScrollController,
+                                  scrollDirection: Axis.horizontal,
+                                  child: DataTable(
+                                    columns: const [
+                                      DataColumn(label: Text('Créé le')),
+                                      DataColumn(label: Text('Job')),
+                                      DataColumn(label: Text('Document')),
+                                      DataColumn(label: Text('Type')),
+                                      DataColumn(label: Text('Statut')),
+                                      DataColumn(label: Text('Erreur')),
                                     ],
-                                  );
-                                }).toList(),
+                                    rows: jobs.map((job) {
+                                      final status = job['status']?.toString();
+
+                                      return DataRow(
+                                        cells: [
+                                          DataCell(Text(job['created_at']?.toString() ?? '—')),
+                                          DataCell(Text(job['job_id']?.toString() ?? '—')),
+                                          DataCell(Text(job['document_id']?.toString() ?? '—')),
+                                          DataCell(Text(job['job_type']?.toString() ?? '—')),
+                                          DataCell(
+                                            Chip(
+                                              label: Text(
+                                                status ?? '—',
+                                                style: const TextStyle(color: Colors.white),
+                                              ),
+                                              backgroundColor: statusColor(status),
+                                            ),
+                                          ),
+                                          DataCell(
+                                            SizedBox(
+                                              width: 260,
+                                              child: Text(
+                                                job['last_error']?.toString() ?? '—',
+                                                overflow: TextOverflow.ellipsis,
+                                              ),
+                                            ),
+                                          ),
+                                        ],
+                                      );
+                                    }).toList(),
+                                  ),
+                                ),
                               ),
                             ),
                           ),
-                        ),
+                        ],
                       ),
-                    ],
-                  ),
+                    );
+                  },
                 ),
     );
   }

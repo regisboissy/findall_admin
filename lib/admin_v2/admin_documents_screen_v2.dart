@@ -241,6 +241,63 @@ class _AdminDocumentsScreenV2State
     );
   }
 
+  Widget mobileDocumentsList() {
+    return ListView.builder(
+      itemCount: documents.length,
+      itemBuilder: (context, index) {
+        final doc = documents[index];
+        final id = doc['document_id']?.toString();
+        final cost = costByDocument[id];
+        final status = doc['ocr_status']?.toString();
+
+        return Card(
+          margin: const EdgeInsets.only(bottom: 12),
+          child: Padding(
+            padding: const EdgeInsets.all(14),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  doc['resolved_title']?.toString() ?? '—',
+                  style: const TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(height: 8),
+
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    Chip(
+                      label: Text(status ?? '—'),
+                      backgroundColor: statusColor(status),
+                      labelStyle: const TextStyle(color: Colors.white),
+                    ),
+                    Chip(
+                      label: Text('${doc['page_count'] ?? '—'} page(s)'),
+                    ),
+                    Chip(
+                      label: Text(money(cost)),
+                    ),
+                  ],
+                ),
+
+                const SizedBox(height: 8),
+
+                Text('Type : ${doc['document_type_label'] ?? '—'}'),
+                Text('Entité : ${doc['document_entity'] ?? '—'}'),
+                Text('Langue : ${doc['document_language'] ?? '—'}'),
+                Text('Date : ${doc['created_at'] ?? '—'}'),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return AdminLayout(
@@ -252,73 +309,94 @@ class _AdminDocumentsScreenV2State
                   padding: const EdgeInsets.all(24),
                   child: Text('Erreur : $error'),
                 )
-              : SingleChildScrollView(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      filters(),
-                      const SizedBox(height: 12),
-                      paginationControls(),
-                      const SizedBox(height: 12),
-                      Card(
-                        child: Padding(
-                          padding: const EdgeInsets.all(16),
-                          child: Scrollbar(
-                            controller: horizontalScrollController,
-                            thumbVisibility: true,
-                            child: SingleChildScrollView(
-                              controller: horizontalScrollController,
-                              scrollDirection: Axis.horizontal,
-                              child: DataTable(
-                                columnSpacing: 16,
-                                columns: const [
-                                  DataColumn(label: Text('Date')),
-                                  DataColumn(label: Text('Titre')),
-                                  DataColumn(label: Text('Type')),
-                                  DataColumn(label: Text('Entité')),
-                                  DataColumn(label: Text('Langue')),
-                                  DataColumn(label: Text('Pages')),
-                                  DataColumn(label: Text('Statut')),
-                                  DataColumn(label: Text('Coût')),
-                                ],
-                                rows: documents.map((doc) {
-                                final id = doc['document_id']?.toString();
-                                final cost = costByDocument[id];
+              : LayoutBuilder(
+                  builder: (context, constraints) {
+                    final isMobile = constraints.maxWidth < 700;
 
-                                return DataRow(cells: [
-                                  DataCell(Text(doc['created_at']?.toString() ?? '—')),
-                                  DataCell(
-                                    SizedBox(
-                                      width: 220,
-                                      child: Text(
-                                        doc['resolved_title']?.toString() ?? '—',
-                                        overflow: TextOverflow.ellipsis,
-                                      ),
-                                    ),
+                    if (isMobile) {
+                      return Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          filters(),
+                          const SizedBox(height: 12),
+                          paginationControls(),
+                          const SizedBox(height: 12),
+                          Expanded(
+                            child: mobileDocumentsList(),
+                          ),
+                        ],
+                      );
+                    }
+
+                    return SingleChildScrollView(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          filters(),
+                          const SizedBox(height: 12),
+                          paginationControls(),
+                          const SizedBox(height: 12),
+                          Card(
+                            child: Padding(
+                              padding: const EdgeInsets.all(16),
+                              child: Scrollbar(
+                                controller: horizontalScrollController,
+                                thumbVisibility: true,
+                                child: SingleChildScrollView(
+                                  controller: horizontalScrollController,
+                                  scrollDirection: Axis.horizontal,
+                                  child: DataTable(
+                                    columnSpacing: 16,
+                                    columns: const [
+                                      DataColumn(label: Text('Date')),
+                                      DataColumn(label: Text('Titre')),
+                                      DataColumn(label: Text('Type')),
+                                      DataColumn(label: Text('Entité')),
+                                      DataColumn(label: Text('Langue')),
+                                      DataColumn(label: Text('Pages')),
+                                      DataColumn(label: Text('Statut')),
+                                      DataColumn(label: Text('Coût')),
+                                    ],
+                                    rows: documents.map((doc) {
+                                      final id = doc['document_id']?.toString();
+                                      final cost = costByDocument[id];
+
+                                      return DataRow(cells: [
+                                        DataCell(Text(doc['created_at']?.toString() ?? '—')),
+                                        DataCell(
+                                          SizedBox(
+                                            width: 220,
+                                            child: Text(
+                                              doc['resolved_title']?.toString() ?? '—',
+                                              overflow: TextOverflow.ellipsis,
+                                            ),
+                                          ),
+                                        ),
+                                        DataCell(Text(doc['document_type_label']?.toString() ?? '—')),
+                                        DataCell(Text(doc['document_entity']?.toString() ?? '—')),
+                                        DataCell(Text(doc['document_language']?.toString() ?? '—')),
+                                        DataCell(Text(doc['page_count']?.toString() ?? '—')),
+                                        DataCell(
+                                          Chip(
+                                            label: Text(
+                                              doc['ocr_status']?.toString() ?? '—',
+                                              style: const TextStyle(color: Colors.white),
+                                            ),
+                                            backgroundColor: statusColor(doc['ocr_status']?.toString()),
+                                          ),
+                                        ),
+                                        DataCell(Text(money(cost))),
+                                      ]);
+                                    }).toList(),
                                   ),
-                                  DataCell(Text(doc['document_type_label']?.toString() ?? '—')),
-                                  DataCell(Text(doc['document_entity']?.toString() ?? '—')),
-                                  DataCell(Text(doc['document_language']?.toString() ?? '—')),
-                                  DataCell(Text(doc['page_count']?.toString() ?? '—')),
-                                  DataCell(
-                                    Chip(
-                                      label: Text(
-                                        doc['ocr_status']?.toString() ?? '—',
-                                        style: const TextStyle(color: Colors.white),
-                                      ),
-                                      backgroundColor: statusColor(doc['ocr_status']?.toString()),
-                                    ),
-                                  ),
-                                  DataCell(Text(money(cost))),
-                                ]);
-                              }).toList(),
+                                ),
                               ),
                             ),
                           ),
-                        ),
+                        ],
                       ),
-                    ]
-                  ),
+                    );
+                  },
                 ),
     );
   }

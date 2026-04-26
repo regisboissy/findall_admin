@@ -37,7 +37,9 @@ class AdminLayout extends StatelessWidget {
           if (desktop) const _AdminSidebar(),
           Expanded(
             child: Padding(
-              padding: const EdgeInsets.all(24),
+              padding: EdgeInsets.all(
+                MediaQuery.of(context).size.width < 600 ? 12 : 24,
+              ),
               child: child,
             ),
           ),

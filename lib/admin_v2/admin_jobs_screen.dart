@@ -16,14 +16,16 @@ class _AdminJobsScreenState extends State<AdminJobsScreen> {
   bool isLoading = true;
   String? error;
   List<Map<String, dynamic>> jobs = [];
+  bool errorsOnly = false;
   
   final ScrollController horizontalScrollController = ScrollController();
+  final guestController = TextEditingController();
 
   int pageSize = 20;
   int page = 0;
 
   String statusFilter = 'all';
-  String periodFilter = 'all';
+  String periodFilter = 'week';
   String guestFilter = '';
 
 
@@ -36,6 +38,7 @@ class _AdminJobsScreenState extends State<AdminJobsScreen> {
   @override
   void dispose() {
     horizontalScrollController.dispose();
+    guestController.dispose();
     super.dispose();
   }
 
@@ -49,14 +52,46 @@ class _AdminJobsScreenState extends State<AdminJobsScreen> {
       final from = page * pageSize;
       final to = from + pageSize - 1;
 
-      final response = await supabase
+      var query = supabase
           .from('processing_jobs')
-          .select()
+          .select();
+
+      // 🔹 Guest ID
+      if (guestFilter.trim().isNotEmpty) {
+        query = query.ilike('guest_id', '%${guestFilter.trim()}%');
+      }
+
+      // 🔹 Statut
+      if (statusFilter != 'all') {
+        query = query.eq('status', statusFilter);
+      }
+
+      if (errorsOnly) {
+        query = query.or('status.eq.failed,last_error.not.is.null');
+      }
+
+      // 🔹 Période
+      final now = DateTime.now();
+
+      if (periodFilter == 'day') {
+        final start = DateTime(now.year, now.month, now.day);
+        query = query.gte('created_at', start.toIso8601String());
+      } else if (periodFilter == 'week') {
+        final start = now.subtract(const Duration(days: 7));
+        query = query.gte('created_at', start.toIso8601String());
+      } else if (periodFilter == 'month') {
+        final start = DateTime(now.year, now.month, 1);
+        query = query.gte('created_at', start.toIso8601String());
+      }
+
+      // 🔹 Pagination + tri
+      final response = await query
           .order('created_at', ascending: false)
           .range(from, to);
 
       setState(() {
-        jobs = List<Map<String, dynamic>>.from(response);
+        final list = List<Map<String, dynamic>>.from(response);
+        jobs = sortJobs(list);
         isLoading = false;
       });
     } catch (e) {
@@ -80,6 +115,32 @@ class _AdminJobsScreenState extends State<AdminJobsScreen> {
       default:
         return Colors.grey;
     }
+  }
+
+  List<Map<String, dynamic>> sortJobs(List<Map<String, dynamic>> jobs) {
+    int score(Map<String, dynamic> j) {
+      final status = (j['status'] ?? '').toString();
+      final error = j['last_error'];
+
+      if (status == 'failed') return 5;
+      if (error != null && error.toString().isNotEmpty) return 4;
+      if (status == 'processing') return 3;
+      if (status == 'pending') return 2;
+      if (status == 'done') return 1;
+
+      return 0;
+    }
+
+    jobs.sort((a, b) {
+      final s = score(b).compareTo(score(a));
+      if (s != 0) return s;
+
+      return (b['created_at'] ?? '')
+          .toString()
+          .compareTo((a['created_at'] ?? '').toString());
+    });
+
+    return jobs;
   }
 
   Widget filters() {
@@ -109,6 +170,7 @@ class _AdminJobsScreenState extends State<AdminJobsScreen> {
                 periodFilter = value;
                 page = 0;
               });
+              loadData();
             },
           ),
         ),
@@ -134,24 +196,57 @@ class _AdminJobsScreenState extends State<AdminJobsScreen> {
                 statusFilter = value;
                 page = 0;
               });
+              loadData();
             },
           ),
         ),
         SizedBox(
           width: 260,
           child: TextField(
+            controller: guestController,
             decoration: const InputDecoration(
               labelText: 'Guest ID',
               border: OutlineInputBorder(),
               isDense: true,
             ),
             onChanged: (value) {
+              guestFilter = value;
+            },
+
+            onSubmitted: (_) {
               setState(() {
-                guestFilter = value;
                 page = 0;
               });
+              loadData();
             },
           ),
+        ),
+        FilterChip(
+          label: const Text('Erreurs seulement'),
+          selected: errorsOnly,
+          onSelected: (value) {
+            setState(() {
+              errorsOnly = value;
+              page = 0;
+            });
+            loadData();
+          },
+        ),
+        OutlinedButton.icon(
+          onPressed: () {
+            setState(() {
+              periodFilter = 'week';
+              statusFilter = 'all';
+              guestFilter = '';
+              guestController.clear();
+              errorsOnly = false;
+              page = 0;
+            });
+
+            loadData();
+          },
+          icon: const Icon(Icons.refresh),
+          label: const Text('Reset'),
         ),
       ],
     );
@@ -327,9 +422,9 @@ class _AdminJobsScreenState extends State<AdminJobsScreen> {
                                       return DataRow(
                                         cells: [
                                           DataCell(Text(job['created_at']?.toString() ?? '—')),
-                                          DataCell(Text(job['job_id']?.toString() ?? '—')),
-                                          DataCell(Text(job['document_id']?.toString() ?? '—')),
-                                          DataCell(Text(job['job_type']?.toString() ?? '—')),
+                                          DataCell(SelectableText(job['job_id']?.toString() ?? '—')),
+                                          DataCell(SelectableText(job['document_id']?.toString() ?? '—')),
+                                          DataCell(SelectableText(job['job_type']?.toString() ?? '—')),
                                           DataCell(
                                             Chip(
                                               label: Text(
@@ -341,10 +436,10 @@ class _AdminJobsScreenState extends State<AdminJobsScreen> {
                                           ),
                                           DataCell(
                                             SizedBox(
-                                              width: 260,
-                                              child: Text(
+                                              width: 420,
+                                              child: SelectableText(
                                                 job['last_error']?.toString() ?? '—',
-                                                overflow: TextOverflow.ellipsis,
+                                                maxLines: 3,
                                               ),
                                             ),
                                           ),

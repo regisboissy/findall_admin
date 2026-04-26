@@ -171,7 +171,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
           ),
           const SizedBox(height: 6),
           const Text(
-            'Pilotage produit, coûts, données, fonctionnalités et traitements.',
+            'You search, We find...',
           ),
           const SizedBox(height: 24),
 

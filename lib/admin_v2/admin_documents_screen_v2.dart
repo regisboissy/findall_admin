@@ -559,14 +559,14 @@ class _AdminDocumentsScreenV2State
                                             width: 220,
                                             child: SelectableText(
                                               doc['resolved_title']?.toString() ?? '—',
-                                              maxLines: 3,
+                                              maxLines: 2,
                                             ),
                                           ),
                                         ),
                                         DataCell(SelectableText(doc['document_type_label']?.toString() ?? '—')),
                                         DataCell(SelectableText(doc['document_entity']?.toString() ?? '—')),
                                         DataCell(Text(doc['document_language']?.toString() ?? '—')),
-                                        DataCell(Text(doc['page_count']?.toString() ?? '—')),
+                                        DataCell(SelectableText(doc['page_count']?.toString() ?? '—')),
                                         DataCell(
                                           Chip(
                                             label: Text(

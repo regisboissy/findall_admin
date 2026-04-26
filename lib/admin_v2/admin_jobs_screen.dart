@@ -117,16 +117,64 @@ class _AdminJobsScreenState extends State<AdminJobsScreen> {
     }
   }
 
+  bool isStuckJob(Map<String, dynamic> job) {
+    final status = job['status']?.toString();
+    final createdAtRaw = job['created_at']?.toString();
+
+    if (createdAtRaw == null || createdAtRaw.isEmpty) return false;
+
+    final createdAt = DateTime.tryParse(createdAtRaw);
+    if (createdAt == null) return false;
+
+    final diff = DateTime.now().difference(createdAt);
+
+    if (status == 'processing' && diff.inMinutes > 10) return true;
+    if (status == 'pending' && diff.inMinutes > 5) return true;
+
+    return false;
+  }
+
+  Widget statusChip(Map<String, dynamic> job) {
+    final status = job['status']?.toString();
+    final stuck = isStuckJob(job);
+
+    return Chip(
+      label: Text(
+        stuck ? 'STUCK' : (status ?? '—'),
+        style: const TextStyle(color: Colors.white),
+      ),
+      backgroundColor: stuck ? Colors.deepOrange : statusColor(status),
+    );
+  }
+
+
+
   List<Map<String, dynamic>> sortJobs(List<Map<String, dynamic>> jobs) {
     int score(Map<String, dynamic> j) {
       final status = (j['status'] ?? '').toString();
       final error = j['last_error'];
+      final createdAtStr = j['created_at']?.toString();
 
-      if (status == 'failed') return 5;
-      if (error != null && error.toString().isNotEmpty) return 4;
-      if (status == 'processing') return 3;
-      if (status == 'pending') return 2;
-      if (status == 'done') return 1;
+      DateTime? createdAt;
+      if (createdAtStr != null) {
+        createdAt = DateTime.tryParse(createdAtStr);
+      }
+
+      final now = DateTime.now();
+
+      if (status == 'failed') return 6;
+      if (error != null && error.toString().isNotEmpty) return 5;
+
+      if (createdAt != null) {
+        final diff = now.difference(createdAt);
+
+        if (status == 'processing' && diff.inMinutes > 10) return 4;
+        if (status == 'pending' && diff.inMinutes > 5) return 3;
+      }
+
+      if (status == 'processing') return 2;
+      if (status == 'pending') return 1;
+      if (status == 'done') return 0;
 
       return 0;
     }
@@ -305,7 +353,6 @@ class _AdminJobsScreenState extends State<AdminJobsScreen> {
       itemCount: jobs.length,
       itemBuilder: (context, index) {
         final job = jobs[index];
-        final status = job['status']?.toString();
 
         return Card(
           margin: const EdgeInsets.only(bottom: 12),
@@ -326,13 +373,7 @@ class _AdminJobsScreenState extends State<AdminJobsScreen> {
                   spacing: 8,
                   runSpacing: 8,
                   children: [
-                    Chip(
-                      label: Text(
-                        status ?? '—',
-                        style: const TextStyle(color: Colors.white),
-                      ),
-                      backgroundColor: statusColor(status),
-                    ),
+                    statusChip(job),
                     Chip(
                       label: Text(job['job_type']?.toString() ?? '—'),
                     ),
@@ -417,7 +458,6 @@ class _AdminJobsScreenState extends State<AdminJobsScreen> {
                                       DataColumn(label: Text('Erreur')),
                                     ],
                                     rows: jobs.map((job) {
-                                      final status = job['status']?.toString();
 
                                       return DataRow(
                                         cells: [
@@ -425,15 +465,7 @@ class _AdminJobsScreenState extends State<AdminJobsScreen> {
                                           DataCell(SelectableText(job['job_id']?.toString() ?? '—')),
                                           DataCell(SelectableText(job['document_id']?.toString() ?? '—')),
                                           DataCell(SelectableText(job['job_type']?.toString() ?? '—')),
-                                          DataCell(
-                                            Chip(
-                                              label: Text(
-                                                status ?? '—',
-                                                style: const TextStyle(color: Colors.white),
-                                              ),
-                                              backgroundColor: statusColor(status),
-                                            ),
-                                          ),
+                                          DataCell(statusChip(job)),
                                           DataCell(
                                             SizedBox(
                                               width: 420,

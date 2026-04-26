@@ -207,8 +207,7 @@ class _AdminDocumentsScreenV2State
       runSpacing: 12,
       crossAxisAlignment: WrapCrossAlignment.center,
       children: [
-        Flexible(
-          child: ConstrainedBox(
+        ConstrainedBox(
             constraints: const BoxConstraints(
               minWidth: 180,
               maxWidth: 260,
@@ -236,9 +235,7 @@ class _AdminDocumentsScreenV2State
               },
             ),
           ),
-        ),
-        Flexible(
-          child: ConstrainedBox(
+        ConstrainedBox(
             constraints: const BoxConstraints(
               minWidth: 180,
               maxWidth: 260,
@@ -261,9 +258,7 @@ class _AdminDocumentsScreenV2State
               },
             ),
           ),
-        ),
-        Flexible(
-          child: ConstrainedBox(
+        ConstrainedBox(
             constraints: const BoxConstraints(
               minWidth: 180,
               maxWidth: 260,
@@ -299,9 +294,7 @@ class _AdminDocumentsScreenV2State
               },
             ),
           ),
-        ),
-        Flexible(
-          child: ConstrainedBox(
+        ConstrainedBox(
             constraints: const BoxConstraints(
               minWidth: 180,
               maxWidth: 260,
@@ -324,9 +317,7 @@ class _AdminDocumentsScreenV2State
               },
             ),
           ),
-        ),
-        Flexible(
-          child: ConstrainedBox(
+ConstrainedBox(
             constraints: const BoxConstraints(
               minWidth: 180,
               maxWidth: 260,
@@ -357,7 +348,6 @@ class _AdminDocumentsScreenV2State
               },
             ),
           ),
-        ),
         OutlinedButton.icon(
           onPressed: () {
             guestController.clear();

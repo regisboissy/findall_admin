@@ -15,7 +15,9 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
 
   bool isLoading = true;
   String? error;
-  Map<String, dynamic>? data;
+  Map<String, dynamic>? costData;
+  Map<String, dynamic>? liveData;
+  Map<String, dynamic>? auditData;
 
   @override
   void initState() {
@@ -36,13 +38,25 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     });
 
     try {
-      final response = await supabase
+      final costResponse = await supabase
           .from('v_cost_events_global_summary')
           .select()
           .single();
 
+      final liveResponse = await supabase
+          .from('v_admin_live_dashboard_summary')
+          .select()
+          .single();
+
+      final auditResponse = await supabase
+          .from('v_admin_audit_dashboard_summary')
+          .select()
+          .single();
+
       setState(() {
-        data = Map<String, dynamic>.from(response);
+        costData = Map<String, dynamic>.from(costResponse);
+        liveData = Map<String, dynamic>.from(liveResponse);
+        auditData = Map<String, dynamic>.from(auditResponse);
         isLoading = false;
       });
     } catch (e) {
@@ -88,6 +102,31 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
         ),
       ),
     );
+  }
+
+  Widget _sectionTitle(String title, String subtitle) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            title,
+            style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w800),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            subtitle,
+            style: const TextStyle(color: Colors.grey),
+          ),
+        ],
+      ),
+    );
+  }
+
+  num number(dynamic value) {
+    if (value is num) return value;
+    return num.tryParse(value?.toString() ?? '') ?? 0;
   }
 
   Widget _pilotageCard({
@@ -142,23 +181,28 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   }
 
   Widget _dashboardContent() {
-    final totalEvents = data?['total_events']?.toString() ?? '—';
-    final failedEvents = data?['failed_events']?.toString() ?? '—';
-    final totalCost = money(data?['total_cost_usd']);
-    final totalEventsNum =
-        (data?['total_events'] as num?)?.toDouble() ?? 0;
+    final liveDocuments = liveData?['live_documents']?.toString() ?? '—';
+    final liveReview = liveData?['live_documents_to_review']?.toString() ?? '—';
+    final livePending = liveData?['live_jobs_pending']?.toString() ?? '—';
+    final liveProcessing = liveData?['live_jobs_processing']?.toString() ?? '—';
+    final liveFailed = liveData?['live_jobs_failed']?.toString() ?? '—';
 
-    final failedEventsNum =
-        (data?['failed_events'] as num?)?.toDouble() ?? 0;
+    final processedTotal = auditData?['processed_total']?.toString() ?? '—';
+    final processedSuccess = auditData?['processed_success']?.toString() ?? '—';
+    final processedFailed = auditData?['processed_failed']?.toString() ?? '—';
+    final totalPages = auditData?['total_pages']?.toString() ?? '—';
+    final failureRate = number(auditData?['failure_rate']);
 
-    final totalCostNum =
-        (data?['total_cost_usd'] as num?)?.toDouble() ?? 0;
+    final totalCost = money(costData?['total_cost_usd']);
+    final totalCostNum = number(costData?['total_cost_usd']);
+    final processedTotalNum = number(auditData?['processed_total']);
+    final totalPagesNum = number(auditData?['total_pages']);
 
-    final failureRate =
-        totalEventsNum == 0 ? 0 : (failedEventsNum / totalEventsNum) * 100;
+    final avgCostPerDoc =
+        processedTotalNum == 0 ? 0 : totalCostNum / processedTotalNum;
 
-    final avgCost =
-        totalEventsNum == 0 ? 0 : totalCostNum / totalEventsNum;
+    final avgCostPerPage =
+        totalPagesNum == 0 ? 0 : totalCostNum / totalPagesNum;
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(24),
@@ -175,19 +219,76 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
           ),
           const SizedBox(height: 24),
 
+          _sectionTitle(
+            'État live actuel',
+            'Données issues des tables courantes. Peut exclure les documents supprimés définitivement.',
+          ),
           Wrap(
             spacing: 16,
             runSpacing: 16,
             children: [
               _summaryCard(
-                title: 'Événements traités',
-                value: totalEvents,
+                title: 'Documents visibles',
+                value: liveDocuments,
+                icon: Icons.description_outlined,
+              ),
+              _summaryCard(
+                title: 'À vérifier',
+                value: liveReview,
+                icon: Icons.report_problem_outlined,
+              ),
+              _summaryCard(
+                title: 'Jobs pending',
+                value: livePending,
+                icon: Icons.hourglass_empty,
+              ),
+              _summaryCard(
+                title: 'Jobs processing',
+                value: liveProcessing,
+                icon: Icons.sync,
+              ),
+              _summaryCard(
+                title: 'Jobs failed',
+                value: liveFailed,
+                icon: Icons.error_outline,
+              ),
+            ],
+          ),
+
+          const SizedBox(height: 28),
+
+          _sectionTitle(
+            'Historique d’analyse',
+            'Données issues de document_audit_events. Plus fiable pour les tendances, à alimenter en continu par le worker.',
+          ),
+          Wrap(
+            spacing: 16,
+            runSpacing: 16,
+            children: [
+              _summaryCard(
+                title: 'Traitements',
+                value: processedTotal,
                 icon: Icons.analytics_outlined,
               ),
               _summaryCard(
+                title: 'Succès',
+                value: processedSuccess,
+                icon: Icons.check_circle_outline,
+              ),
+              _summaryCard(
                 title: 'Échecs',
-                value: failedEvents,
+                value: processedFailed,
                 icon: Icons.warning_amber_outlined,
+              ),
+              _summaryCard(
+                title: 'Pages traitées',
+                value: totalPages,
+                icon: Icons.layers_outlined,
+              ),
+              _summaryCard(
+                title: 'Taux échec',
+                value: '${failureRate.toStringAsFixed(1)} %',
+                icon: Icons.percent,
               ),
               _summaryCard(
                 title: 'Coût estimé total',
@@ -195,15 +296,14 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                 icon: Icons.payments_outlined,
               ),
               _summaryCard(
-                title: 'Taux échec',
-                value: '${failureRate.toStringAsFixed(1)} %',
-                icon: Icons.error_outline,
+                title: 'Coût / traitement',
+                value: money(avgCostPerDoc),
+                icon: Icons.receipt_long,
               ),
-
               _summaryCard(
-                title: 'Coût moyen / event',
-                value: money(avgCost),
-                icon: Icons.show_chart,
+                title: 'Coût / page',
+                value: money(avgCostPerPage),
+                icon: Icons.calculate_outlined,
               ),
             ],
           ),

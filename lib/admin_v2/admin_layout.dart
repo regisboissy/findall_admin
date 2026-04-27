@@ -228,7 +228,7 @@ class _MenuContentState extends State<_MenuContent> {
 
         section('Coûts'),
         item(context, 'Vue coûts', '/admin-costs', Icons.table_chart),
-        item(context, 'Providers', '/admin-providers', Icons.cloud),
+        item(context, 'Services tiers', '/admin-providers', Icons.cloud),
 
         section('Données'),
         item(context, 'Documents', '/admin-docs', Icons.description),

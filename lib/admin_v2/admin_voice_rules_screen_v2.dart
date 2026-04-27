@@ -80,38 +80,7 @@ class _AdminVoiceRulesScreenState extends State<AdminVoiceRulesScreenV2> {
     }
   }
 
-  List<Map<String, dynamic>> _filteredRules() {
-    final query = _searchQuery.trim().toLowerCase();
-
-    final filtered = _rules.where((rule) {
-      final language = (rule['language'] ?? '').toString();
-      final type = (rule['rule_type'] ?? '').toString();
-      final isActive = rule['is_active'] == true;
-      final value = (rule['value'] ?? '').toString().toLowerCase();
-      final notes = (rule['notes'] ?? '').toString().toLowerCase();
-
-      final matchesLanguage =
-          _languageFilter == 'Toutes' || language == _languageFilter;
-      final matchesType =
-          _typeFilter == 'Tous' || type == _typeFilter;
-      final matchesStatus =
-          _statusFilter == 'Tous' ||
-              (_statusFilter == 'Actives' && isActive) ||
-              (_statusFilter == 'Inactives' && !isActive);
-
-      final matchesSearch =
-          query.isEmpty || value.contains(query) || notes.contains(query);
-
-      return matchesLanguage &&
-          matchesType &&
-          matchesStatus &&
-          matchesSearch;
-    }).toList();
-
-    return filtered.take(_rulesDisplayLimit).toList();
-  }
-
-  int _filteredRulesTotalCount() {
+  List<Map<String, dynamic>> _computeFilteredRules() {
     final query = _searchQuery.trim().toLowerCase();
 
     return _rules.where((rule) {
@@ -137,7 +106,15 @@ class _AdminVoiceRulesScreenState extends State<AdminVoiceRulesScreenV2> {
           matchesType &&
           matchesStatus &&
           matchesSearch;
-    }).length;
+    }).toList();
+  }
+
+  List<Map<String, dynamic>> _filteredRules() {
+    return _computeFilteredRules().take(_rulesDisplayLimit).toList();
+  }
+
+  int _filteredRulesTotalCount() {
+    return _computeFilteredRules().length;
   }
 
   Future<void> _toggleActive(Map<String, dynamic> rule) async {
@@ -607,7 +584,14 @@ class _AdminVoiceRulesScreenState extends State<AdminVoiceRulesScreenV2> {
                         child: ListTile(
                           selected: isSelected,
                           title: Text(value),
-                          subtitle: Text(subtitle),
+                          subtitle: Text(
+                            subtitle,
+                            style: TextStyle(
+                              color: rule['rule_type'] == 'stop_word'
+                                  ? Colors.purple
+                                  : Colors.lightBlue,
+                            ),
+                          ),
                           trailing: Chip(
                             label: Text(
                               rule['is_active'] == true ? 'Active' : 'Inactive',

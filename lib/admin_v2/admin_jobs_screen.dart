@@ -17,6 +17,7 @@ class _AdminJobsScreenState extends State<AdminJobsScreen> {
   String? error;
   List<Map<String, dynamic>> jobs = [];
   bool errorsOnly = false;
+  Map<String, dynamic>? jobsSummary;
   
   final ScrollController horizontalScrollController = ScrollController();
   final guestController = TextEditingController();
@@ -56,13 +57,18 @@ class _AdminJobsScreenState extends State<AdminJobsScreen> {
           .from('processing_jobs')
           .select();
 
+      final summaryResponse = await supabase
+          .from('v_jobs_summary')
+          .select()
+          .single();
+
       // 🔹 Guest ID
       if (guestFilter.trim().isNotEmpty) {
         query = query.ilike('guest_id', '%${guestFilter.trim()}%');
       }
 
       // 🔹 Statut
-      if (statusFilter != 'all') {
+      if (statusFilter != 'all' && statusFilter != 'stuck') {
         query = query.eq('status', statusFilter);
       }
 
@@ -90,8 +96,17 @@ class _AdminJobsScreenState extends State<AdminJobsScreen> {
           .range(from, to);
 
       setState(() {
+        jobsSummary = Map<String, dynamic>.from(summaryResponse);
+
         final list = List<Map<String, dynamic>>.from(response);
-        jobs = sortJobs(list);
+        var sorted = sortJobs(list);
+
+        if (statusFilter == 'stuck') {
+          sorted = sorted.where((j) => isStuckJob(j)).toList();
+        }
+
+        jobs = sorted;
+
         isLoading = false;
       });
     } catch (e) {
@@ -100,6 +115,43 @@ class _AdminJobsScreenState extends State<AdminJobsScreen> {
         isLoading = false;
       });
     }
+  }
+
+  Widget jobsKpi() {
+    if (jobsSummary == null) return const SizedBox.shrink();
+
+    Widget card(String label, dynamic value, Color color) {
+      return Expanded(
+        child: Card(
+          child: Padding(
+            padding: const EdgeInsets.all(12),
+            child: Column(
+              children: [
+                Text(label),
+                const SizedBox(height: 6),
+                Text(
+                  value.toString(),
+                  style: TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                    color: color,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
+    return Row(
+      children: [
+        card('Pending', jobsSummary!['pending'], Colors.blue),
+        card('Processing', jobsSummary!['processing'], Colors.orange),
+        card('Failed', jobsSummary!['failed'], Colors.red),
+        card('Done', jobsSummary!['done'], Colors.green),
+      ],
+    );
   }
 
   Color statusColor(String? status) {
@@ -280,6 +332,17 @@ class _AdminJobsScreenState extends State<AdminJobsScreen> {
             loadData();
           },
         ),
+        FilterChip(
+          label: const Text('Stuck'),
+          selected: statusFilter == 'stuck',
+          onSelected: (value) {
+            setState(() {
+              statusFilter = value ? 'stuck' : 'all';
+              page = 0;
+            });
+            loadData();
+          },
+        ),
         OutlinedButton.icon(
           onPressed: () {
             setState(() {
@@ -420,6 +483,15 @@ class _AdminJobsScreenState extends State<AdminJobsScreen> {
                       return Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
+                          jobsKpi(),
+                          const SizedBox(height: 12),
+
+                          const Text(
+                            'Les jobs sont triés automatiquement : erreurs et jobs bloqués en priorité',
+                            style: TextStyle(fontSize: 12, color: Colors.grey),
+                          ),
+
+                          const SizedBox(height: 12),
                           filters(),
                           const SizedBox(height: 12),
                           paginationControls(),
@@ -435,6 +507,15 @@ class _AdminJobsScreenState extends State<AdminJobsScreen> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
+                          jobsKpi(),
+                          const SizedBox(height: 12),
+
+                          const Text(
+                            'Les jobs sont triés automatiquement : erreurs et jobs bloqués en priorité',
+                            style: TextStyle(fontSize: 12, color: Colors.grey),
+                          ),
+
+                          const SizedBox(height: 12),
                           filters(),
                           const SizedBox(height: 12),
                           paginationControls(),

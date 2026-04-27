@@ -299,22 +299,29 @@ class _AdminProvidersScreenState extends State<AdminProvidersScreen> {
 
   Widget comparisonBlock() {
     final estimated = toDouble(estimatedRow?['total_cost_usd']);
-    final real = toDouble(providerRow?['total_cost_usd']);
+    final hasProviderData = providerRow != null;
+    final real = hasProviderData ? toDouble(providerRow?['total_cost_usd']) : null;
 
-    final diffUsd = real - estimated;
-    final diffRate = estimated > 0 ? (diffUsd / estimated) * 100 : 0;
+    final diffUsd = hasProviderData ? real! - estimated : null;
+    final diffRate = hasProviderData && estimated > 0
+        ? (diffUsd! / estimated) * 100
+        : null;
 
-    final isOverCost = diffUsd > 0;
+    final isOverCost = hasProviderData && diffUsd! > 0;
 
     return Card(
-      color: isOverCost ? Colors.red.shade50 : Colors.green.shade50,
+      color: !hasProviderData
+          ? Colors.orange.shade50
+          : isOverCost
+              ? Colors.red.shade50
+              : Colors.green.shade50,
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const Text(
-              'Comparaison estimé vs réel',
+              'Comparaison coûts estimés vs coûts réels',
               style: TextStyle(
                 fontSize: 18,
                 fontWeight: FontWeight.bold,
@@ -324,13 +331,23 @@ class _AdminProvidersScreenState extends State<AdminProvidersScreen> {
             Text('Mois : ${selectedMonth.year}-${selectedMonth.month.toString().padLeft(2, '0')}'),
             const SizedBox(height: 8),
             Text('Estimé : ${money(estimated)}'),
-            Text('Réel : ${money(real)}'),
+            Text(
+              hasProviderData
+                  ? 'Réel : ${money(real)}'
+                  : 'Réel : non renseigné',
+            ),
             const SizedBox(height: 8),
             Text(
-              'Écart : ${money(diffUsd)} (${diffRate.toStringAsFixed(1)} %)',
+              hasProviderData
+                  ? 'Écart : ${money(diffUsd)} (${diffRate!.toStringAsFixed(1)} %)'
+                  : 'Écart : impossible à calculer',
               style: TextStyle(
                 fontWeight: FontWeight.bold,
-                color: isOverCost ? Colors.red.shade700 : Colors.green.shade700,
+                color: !hasProviderData
+                    ? Colors.orange.shade700
+                    : isOverCost
+                        ? Colors.red.shade700
+                        : Colors.green.shade700,
               ),
             ),
           ],
@@ -387,7 +404,27 @@ class _AdminProvidersScreenState extends State<AdminProvidersScreen> {
 
         return DataRow(cells: [
           DataCell(Text(p)),
-          DataCell(Text(money(row?['total_cost_usd']))),
+          DataCell(
+            row == null
+                ? const Text('—')
+                : Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      if (row['original_cost'] != null)
+                        Text(
+                          '${row['original_cost']} €',
+                          style: const TextStyle(fontWeight: FontWeight.w500),
+                        ),
+                      Text(
+                        money(row['total_cost_usd']),
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: Colors.grey,
+                        ),
+                      ),
+                    ],
+                  ),
+          ),
           DataCell(
             ElevatedButton(
               onPressed: () => openEditDialog(p),
@@ -402,7 +439,7 @@ class _AdminProvidersScreenState extends State<AdminProvidersScreen> {
   @override
   Widget build(BuildContext context) {
     return AdminLayout(
-      title: 'Providers',
+      title: 'Coûts des services tiers',
       child: isLoading
           ? const Center(child: CircularProgressIndicator())
           : error != null

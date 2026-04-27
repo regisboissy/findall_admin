@@ -23,6 +23,7 @@ class _AdminDocumentsScreenV2State
   final ScrollController horizontalScrollController = ScrollController();
   final guestController = TextEditingController();
   final titleController = TextEditingController();
+  Map<String, dynamic>? documentsSummary;
   
   int pageSize = 20;
   int page = 0;
@@ -82,6 +83,11 @@ class _AdminDocumentsScreenV2State
             processing_step,
             processing_error
           ''');
+      
+      final summaryResponse = await supabase
+          .from('v_documents_summary')
+          .select()
+          .single();
 
       if (selectedGuest != null && selectedGuest!.isNotEmpty) {
         query = query.ilike('guest_id', '%$selectedGuest%');
@@ -147,9 +153,12 @@ class _AdminDocumentsScreenV2State
       }
 
       setState(() {
+        documentsSummary = Map<String, dynamic>.from(summaryResponse);
+
         final docs = List<Map<String, dynamic>>.from(docsResp);
         documents = sortDocuments(docs);
         costByDocument = costMap;
+
         isLoading = false;
       });
     } catch (e) {
@@ -158,6 +167,61 @@ class _AdminDocumentsScreenV2State
         isLoading = false;
       });
     }
+  }
+
+  Widget documentsKpi() {
+    if (documentsSummary == null) return const SizedBox.shrink();
+
+    Widget card(String label, dynamic value, Color color) {
+      return Expanded(
+        child: Card(
+          child: Padding(
+            padding: const EdgeInsets.all(12),
+            child: Column(
+              children: [
+                Text(label),
+                const SizedBox(height: 6),
+                Text(
+                  value.toString(),
+                  style: TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                    color: color,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
+    final total = (documentsSummary!['total'] ?? 0) as int;
+    final ok = (documentsSummary!['ready'] ?? 0) as int;
+
+    final qualityRate = total == 0 ? 0 : (ok / total * 100);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            card('Total', total, Colors.blueGrey),
+            card('OK', ok, Colors.green),
+            card('À revoir', documentsSummary!['review_required'], Colors.orange),
+            card('KO', documentsSummary!['failed'], Colors.red),
+          ],
+        ),
+        const SizedBox(height: 8),
+        Text(
+          'Qualité OCR : ${qualityRate.toStringAsFixed(1)}%',
+          style: const TextStyle(
+            fontSize: 13,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+      ],
+    );
   }
 
   Color statusColor(String? status) {
@@ -458,7 +522,7 @@ ConstrainedBox(
                       label: Text('${doc['page_count'] ?? '—'} page(s)'),
                     ),
                     Chip(
-                      label: Text(money(cost)),
+                      label: Text('Coût évènement ${money(cost)}'),
                     ),
                   ],
                 ),
@@ -496,7 +560,14 @@ ConstrainedBox(
                       return Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
+                          documentsKpi(),
+                          const SizedBox(height: 12),
                           filters(),
+                          const SizedBox(height: 12),
+                          const Text(
+                            'Les documents sont triés automatiquement : échecs, lectures insuffisantes et erreurs en priorité',
+                            style: TextStyle(fontSize: 12, color: Colors.grey),
+                          ),
                           const SizedBox(height: 12),
                           paginationControls(),
                           const SizedBox(height: 12),
@@ -511,7 +582,14 @@ ConstrainedBox(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
+                          documentsKpi(),
+                          const SizedBox(height: 12),
                           filters(),
+                          const SizedBox(height: 12),
+                          const Text(
+                            'Les documents sont triés automatiquement : échecs, lectures insuffisantes et erreurs en priorité',
+                            style: TextStyle(fontSize: 12, color: Colors.grey),
+                          ),
                           const SizedBox(height: 12),
                           paginationControls(),
                           const SizedBox(height: 12),
@@ -535,7 +613,7 @@ ConstrainedBox(
                                       DataColumn(label: Text('Langue')),
                                       DataColumn(label: Text('Pages')),
                                       DataColumn(label: Text('Statut')),
-                                      DataColumn(label: Text('Coût')),
+                                      DataColumn(label: Text('Coût événement')),
                                     ],
                                     rows: documents.map((doc) {
                                       final id = doc['document_id']?.toString();                                      

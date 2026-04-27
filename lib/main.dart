@@ -84,6 +84,34 @@ class _AdminGuardState extends State<_AdminGuard> {
       return;
     }
 
+    try {
+      final resp = await supabase
+          .from('profiles')
+          .select('is_admin')
+          .eq('id', user.id)
+          .maybeSingle();
+
+      debugPrint('ADMIN CHECK user.id=${user.id}');
+      debugPrint('ADMIN CHECK resp=$resp');
+
+      if (!mounted) return;
+
+      setState(() {
+        isAdmin = resp?['is_admin'] == true;
+        isLoading = false;
+      });
+    } catch (e) {
+      debugPrint('ADMIN CHECK error=$e');
+
+      if (!mounted) return;
+
+      setState(() {
+        isAdmin = false;
+        isLoading = false;
+      });
+    }
+
+    /*
     final resp = await supabase
         .from('profiles')
         .select('is_admin')
@@ -96,6 +124,7 @@ class _AdminGuardState extends State<_AdminGuard> {
       isAdmin = resp?['is_admin'] == true;
       isLoading = false;
     });
+    */
   }
 
   @override
@@ -107,7 +136,45 @@ class _AdminGuardState extends State<_AdminGuard> {
     }
 
     if (!isAdmin) {
-      return const AdminLoginScreen();
+      return Scaffold(
+        body: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(Icons.lock_outline, size: 48),
+                const SizedBox(height: 16),
+                const Text(
+                  'Accès admin refusé',
+                  style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 8),
+                const Text(
+                  'Ton compte est connecté, mais il n’a pas les droits administrateur.',
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 24),
+                ElevatedButton(
+                  onPressed: () async {
+                    await Supabase.instance.client.auth.signOut(
+                      scope: SignOutScope.global,
+                    );
+
+                    if (!context.mounted) return;
+
+                    Navigator.of(context).pushNamedAndRemoveUntil(
+                      '/login',
+                      (route) => false,
+                    );
+                  },
+                  child: const Text('Retour connexion'),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
     }
 
     return widget.child;

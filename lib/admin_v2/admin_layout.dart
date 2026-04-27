@@ -18,7 +18,8 @@ class AdminLayout extends StatefulWidget {
 }
 
 class _AdminLayoutState extends State<AdminLayout> {
-  static const Duration _inactiveTimeout = Duration(minutes: 1);
+  //delais deconnexion timeout
+  static const Duration _inactiveTimeout = Duration(minutes: 2);
 
   Timer? _inactiveTimer;
 
@@ -46,7 +47,9 @@ class _AdminLayoutState extends State<AdminLayout> {
   Future<void> _signOutForInactivity() async {
     if (!mounted) return;
 
-    await Supabase.instance.client.auth.signOut();
+    await Supabase.instance.client.auth.signOut(
+      scope: SignOutScope.global,
+    );
 
     if (!mounted) return;
 
@@ -265,7 +268,9 @@ class _MenuContentState extends State<_MenuContent> {
                 const SnackBar(content: Text('Déconnexion en cours...')),
               );
 
-              await Supabase.instance.client.auth.signOut();
+              await Supabase.instance.client.auth.signOut(
+                scope: SignOutScope.global,
+              );
 
               if (!mounted) return;
 

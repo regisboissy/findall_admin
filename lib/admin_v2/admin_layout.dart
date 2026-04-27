@@ -1,7 +1,9 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-class AdminLayout extends StatelessWidget {
+class AdminLayout extends StatefulWidget {
   final String title;
   final Widget child;
 
@@ -11,39 +13,84 @@ class AdminLayout extends StatelessWidget {
     required this.child,
   });
 
+  @override
+  State<AdminLayout> createState() => _AdminLayoutState();
+}
+
+class _AdminLayoutState extends State<AdminLayout> {
+  static const Duration _inactiveTimeout = Duration(minutes: 1);
+
+  Timer? _inactiveTimer;
+
   bool isDesktop(BuildContext context) {
     return MediaQuery.of(context).size.width >= 900;
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _resetInactiveTimer();
+  }
+
+  @override
+  void dispose() {
+    _inactiveTimer?.cancel();
+    super.dispose();
+  }
+
+  void _resetInactiveTimer() {
+    _inactiveTimer?.cancel();
+    _inactiveTimer = Timer(_inactiveTimeout, _signOutForInactivity);
+  }
+
+  Future<void> _signOutForInactivity() async {
+    if (!mounted) return;
+
+    await Supabase.instance.client.auth.signOut();
+
+    if (!mounted) return;
+
+    Navigator.of(context).pushNamedAndRemoveUntil(
+      '/login',
+      (route) => false,
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     final desktop = isDesktop(context);
 
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(title),
-        leading: desktop
-            ? null
-            : Builder(
-                builder: (context) => IconButton(
-                  icon: const Icon(Icons.menu),
-                  onPressed: () => Scaffold.of(context).openDrawer(),
+    return Listener(
+      behavior: HitTestBehavior.translucent,
+      onPointerDown: (_) => _resetInactiveTimer(),
+      onPointerMove: (_) => _resetInactiveTimer(),
+      onPointerSignal: (_) => _resetInactiveTimer(),
+      child: Scaffold(
+        appBar: AppBar(
+          title: Text(widget.title),
+          leading: desktop
+              ? null
+              : Builder(
+                  builder: (context) => IconButton(
+                    icon: const Icon(Icons.menu),
+                    onPressed: () => Scaffold.of(context).openDrawer(),
+                  ),
                 ),
+        ),
+        drawer: desktop ? null : const _AdminDrawer(),
+        body: Row(
+          children: [
+            if (desktop) const _AdminSidebar(),
+            Expanded(
+              child: Padding(
+                padding: EdgeInsets.all(
+                  MediaQuery.of(context).size.width < 600 ? 12 : 24,
+                ),
+                child: widget.child,
               ),
-      ),
-      drawer: desktop ? null : const _AdminDrawer(),
-      body: Row(
-        children: [
-          if (desktop) const _AdminSidebar(),
-          Expanded(
-            child: Padding(
-              padding: EdgeInsets.all(
-                MediaQuery.of(context).size.width < 600 ? 12 : 24,
-              ),
-              child: child,
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -77,8 +124,15 @@ class _AdminDrawer extends StatelessWidget {
   }
 }
 
-class _MenuContent extends StatelessWidget {
+class _MenuContent extends StatefulWidget {
   const _MenuContent();
+
+  @override
+  State<_MenuContent> createState() => _MenuContentState();
+}
+
+class _MenuContentState extends State<_MenuContent> {
+  bool _isLoggingOut = false;
 
   String currentRoute(BuildContext context) {
     return ModalRoute.of(context)?.settings.name ?? '';
@@ -112,6 +166,8 @@ class _MenuContent extends StatelessWidget {
       selected: isActive,
       selectedTileColor: Colors.grey.shade200,
       onTap: () {
+        if (isActive) return;
+
         final navigator = Navigator.of(context);
         final scaffold = Scaffold.maybeOf(context);
 
@@ -119,9 +175,7 @@ class _MenuContent extends StatelessWidget {
           navigator.pop(); // ferme le drawer
         }
 
-        if (!isActive) {
-          navigator.pushReplacementNamed(route);
-        }
+        navigator.pushReplacementNamed(route);
       },
     );
   }
@@ -136,15 +190,33 @@ class _MenuContent extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final userEmail = Supabase.instance.client.auth.currentUser?.email;
+
     return ListView(
       children: [
         const SizedBox(height: 16),
 
-        const Padding(
-          padding: EdgeInsets.all(16),
-          child: Text(
-            'findAll Admin',
-            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+        Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'findAll Admin',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              ),
+              if (userEmail != null) ...[
+                const SizedBox(height: 4),
+                Text(
+                  userEmail,
+                  style: const TextStyle(
+                    fontSize: 12,
+                    color: Colors.grey,
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+            ],
           ),
         ),
 
@@ -170,17 +242,51 @@ class _MenuContent extends StatelessWidget {
         const Divider(),
 
         ListTile(
-          leading: const Icon(Icons.logout),
-          title: const Text('Déconnexion'),
+          leading: Icon(_isLoggingOut ? Icons.hourglass_empty : Icons.logout),
+          title: Text(_isLoggingOut ? 'Déconnexion...' : 'Déconnexion'),
+          enabled: !_isLoggingOut,
           onTap: () async {
+            if (_isLoggingOut) return;
+
+            setState(() {
+              _isLoggingOut = true;
+            });
+
             final navigator = Navigator.of(context);
+            final scaffold = Scaffold.maybeOf(context);
+            final scaffoldMessenger = ScaffoldMessenger.of(context);
 
-            await Supabase.instance.client.auth.signOut();
+            if (scaffold?.isDrawerOpen ?? false) {
+              navigator.pop();
+            }
 
-            navigator.pushNamedAndRemoveUntil(
-              '/login',
-              (route) => false,
-            );
+            try {
+              scaffoldMessenger.showSnackBar(
+                const SnackBar(content: Text('Déconnexion en cours...')),
+              );
+
+              await Supabase.instance.client.auth.signOut();
+
+              if (!mounted) return;
+
+              navigator.pushNamedAndRemoveUntil(
+                '/login',
+                (route) => false,
+              );
+            } catch (e) {
+              if (!mounted) return;
+
+              setState(() {
+                _isLoggingOut = false;
+              });
+
+              scaffoldMessenger.showSnackBar(
+                const SnackBar(
+                  content: Text('Erreur lors de la déconnexion'),
+                  backgroundColor: Colors.red,
+                ),
+              );
+            }
           },
         ),
       ],

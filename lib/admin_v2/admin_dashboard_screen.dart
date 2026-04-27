@@ -72,8 +72,13 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     required String value,
     required IconData icon,
   }) {
+    final screenWidth = MediaQuery.of(context).size.width;
+    final isMobile = screenWidth < 600;
+
     return SizedBox(
-      width: 280,
+      width: isMobile
+        ? double.infinity
+        : 280,
       child: Card(
         child: Padding(
           padding: const EdgeInsets.all(18),
@@ -204,18 +209,27 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     final avgCostPerPage =
         totalPagesNum == 0 ? 0 : totalCostNum / totalPagesNum;
 
+    final isMobile = MediaQuery.of(context).size.width < 600;
+
     return SingleChildScrollView(
-      padding: const EdgeInsets.all(24),
+      padding: EdgeInsets.all(isMobile ? 0 : 24),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
+          Text(
             'Cockpit findAll',
-            style: TextStyle(fontSize: 26, fontWeight: FontWeight.w800),
+            style: TextStyle(
+              fontSize: isMobile ? 22 : 26,
+              fontWeight: FontWeight.w800,
+            ),
           ),
           const SizedBox(height: 6),
-          const Text(
+          Text(
             'You search, We find...',
+            style: TextStyle(
+              fontSize: isMobile ? 16 : 22,
+              fontWeight: FontWeight.w800,
+            ),
           ),
           const SizedBox(height: 24),
 
@@ -310,15 +324,14 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
 
           const SizedBox(height: 28),
 
-          GridView.count(
-            crossAxisCount: MediaQuery.of(context).size.width > 1100 ? 2 : 1,
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            mainAxisSpacing: 16,
-            crossAxisSpacing: 16,
-            childAspectRatio:
-                MediaQuery.of(context).size.width > 1100 ? 2.4 : 2.1,
-            children: [
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final isDesktop = constraints.maxWidth > 1100;
+
+              return Wrap(
+                spacing: 16,
+                runSpacing: 16,
+                children: [
               _pilotageCard(
                 title: 'Pilotage des coûts',
                 subtitle:
@@ -359,7 +372,16 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                   _AdminLink('Services tiers', null, Icons.health_and_safety),
                 ],
               ),
-            ],
+                ].map((card) {
+                  return SizedBox(
+                    width: isDesktop
+                        ? (constraints.maxWidth / 2) - 8
+                        : constraints.maxWidth,
+                    child: card,
+                  );
+                }).toList(),
+              );
+            },
           ),
         ],
       ),

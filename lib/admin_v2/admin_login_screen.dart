@@ -17,16 +17,36 @@ class _AdminLoginScreenState extends State<AdminLoginScreen> {
   bool isLoading = false;
   String? error;
 
+  @override
+  void dispose() {
+    emailCtrl.dispose();
+    passwordCtrl.dispose();
+    super.dispose();
+  }
+
   Future<void> login() async {
+    if (isLoading) return;
+
     setState(() {
       isLoading = true;
       error = null;
     });
 
+    final email = emailCtrl.text.trim();
+    final password = passwordCtrl.text.trim();
+
+    if (email.isEmpty || password.isEmpty) {
+      setState(() {
+        error = 'Email et mot de passe obligatoires.';
+        isLoading = false;
+      });
+      return;
+    }
+
     try {
       await supabase.auth.signInWithPassword(
-        email: emailCtrl.text.trim(),
-        password: passwordCtrl.text.trim(),
+        email: email,
+        password: password,
       );
 
       if (!mounted) return;
@@ -34,7 +54,7 @@ class _AdminLoginScreenState extends State<AdminLoginScreen> {
       Navigator.pushReplacementNamed(context, '/admin');
     } catch (e) {
       setState(() {
-        error = e.toString();
+        error = 'Connexion impossible. Vérifie tes identifiants.';
         isLoading = false;
       });
     }

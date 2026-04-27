@@ -42,20 +42,26 @@ class AuthGate extends StatelessWidget {
           return const AdminLoginScreen();
         }
 
-        return const _AdminCheck();
+        return const _AdminGuard(
+          child: AdminDashboardScreen(),
+        );
       },
     );
   }
 }
 
-class _AdminCheck extends StatefulWidget {
-  const _AdminCheck();
+class _AdminGuard extends StatefulWidget {
+  final Widget child;
+
+  const _AdminGuard({
+    required this.child,
+  });
 
   @override
-  State<_AdminCheck> createState() => _AdminCheckState();
+  State<_AdminGuard> createState() => _AdminGuardState();
 }
 
-class _AdminCheckState extends State<_AdminCheck> {
+class _AdminGuardState extends State<_AdminGuard> {
   final supabase = Supabase.instance.client;
 
   bool isLoading = true;
@@ -104,7 +110,7 @@ class _AdminCheckState extends State<_AdminCheck> {
       return const AdminLoginScreen();
     }
 
-    return const AdminDashboardScreen();
+    return widget.child;
   }
 }
 
@@ -118,12 +124,24 @@ class MyApp extends StatelessWidget {
       home: const AuthGate(),
       routes: {
         '/login': (context) => const AdminLoginScreen(),
-        '/admin': (context) => const AdminDashboardScreen(),
-        '/admin-costs': (context) => const AdminCostsScreen(),
-        '/admin-docs': (context) => const AdminDocumentsScreenV2(),
-        '/admin-jobs': (context) => const AdminJobsScreen(),
-        '/admin-providers': (context) => const AdminProvidersScreen(),
-        '/admin-voice': (context) => const AdminVoiceRulesScreenV2(),
+        '/admin': (context) => const _AdminGuard(
+              child: AdminDashboardScreen(),
+            ),
+        '/admin-costs': (context) => const _AdminGuard(
+              child: AdminCostsScreen(),
+            ),
+        '/admin-docs': (context) => const _AdminGuard(
+              child: AdminDocumentsScreenV2(),
+            ),
+        '/admin-jobs': (context) => const _AdminGuard(
+              child: AdminJobsScreen(),
+            ),
+        '/admin-providers': (context) => const _AdminGuard(
+              child: AdminProvidersScreen(),
+            ),
+        '/admin-voice': (context) => const _AdminGuard(
+              child: AdminVoiceRulesScreenV2(),
+            ),
       },
     );
   }

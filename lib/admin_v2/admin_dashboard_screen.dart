@@ -18,6 +18,8 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   Map<String, dynamic>? costData;
   Map<String, dynamic>? liveData;
   Map<String, dynamic>? auditData;
+  Map<String, dynamic>? storageData;
+  List<Map<String, dynamic>> weeklyCosts = [];
 
   @override
   void initState() {
@@ -53,10 +55,22 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
           .select()
           .single();
 
+      final storageResponse = await supabase
+          .from('v_admin_current_storage_cost_summary')
+          .select()
+          .single();
+      
+      final weeklyResponse = await supabase
+          .from('v_admin_costs_weekly')
+          .select()
+          .order('week_start', ascending: true);
+
       setState(() {
         costData = Map<String, dynamic>.from(costResponse);
         liveData = Map<String, dynamic>.from(liveResponse);
         auditData = Map<String, dynamic>.from(auditResponse);
+        storageData = Map<String, dynamic>.from(storageResponse);
+        weeklyCosts = List<Map<String, dynamic>>.from(weeklyResponse);
         isLoading = false;
       });
     } catch (e) {
@@ -65,6 +79,80 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
         isLoading = false;
       });
     }
+  }
+
+  Widget _weeklyCostChart() {
+    if (weeklyCosts.isEmpty) return const SizedBox.shrink();
+
+    final displayData = weeklyCosts.length > 8
+        ? weeklyCosts.sublist(weeklyCosts.length - 8)
+        : weeklyCosts;
+
+    final maxValue = displayData
+        .map((row) => number(row['processing_cost_usd']))
+        .fold<num>(0, (max, value) => value > max ? value : max);
+
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(18),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Tendance coûts de traitement (hebdo)',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
+            ),
+            const SizedBox(height: 4),
+            const Text(
+              'Coût de traitement estimé : OCR + LLM + infra. Le stockage mensuel est affiché séparément.',
+              style: TextStyle(fontSize: 12, color: Colors.grey),
+            ),
+            const SizedBox(height: 18),
+            SizedBox(
+              height: 160,
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: displayData.map((row) {
+                  final value = number(row['processing_cost_usd']);
+                  final heightFactor =
+                      maxValue == 0 ? 0.0 : (value / maxValue).clamp(0.0, 1.0);
+
+                  return Expanded(
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 4),
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.end,
+                        children: [
+                          Text(
+                            money(value),
+                            style: const TextStyle(fontSize: 10),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          const SizedBox(height: 6),
+                          Container(
+                            height: 110 * heightFactor.toDouble(),
+                            width: double.infinity,
+                            decoration: BoxDecoration(
+                              color: Colors.blueGrey.shade300,
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                          ),
+                          const SizedBox(height: 6),
+                          Text(
+                            row['week_start']?.toString().substring(5, 10) ?? '—',
+                            style: const TextStyle(fontSize: 10),
+                          ),
+                        ],
+                      ),
+                    ),
+                  );
+                }).toList(),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   Widget _summaryCard({
@@ -198,16 +286,16 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     final totalPages = auditData?['total_pages']?.toString() ?? '—';
     final failureRate = number(auditData?['failure_rate']);
 
-    final totalCost = money(costData?['total_cost_usd']);
-    final totalCostNum = number(costData?['total_cost_usd']);
+    final eventCost = money(costData?['total_cost_usd']);
+    final eventCostNum = number(costData?['total_cost_usd']);
     final processedTotalNum = number(auditData?['processed_total']);
     final totalPagesNum = number(auditData?['total_pages']);
 
-    final avgCostPerDoc =
-        processedTotalNum == 0 ? 0 : totalCostNum / processedTotalNum;
+    final avgEventCostPerDoc =
+    processedTotalNum == 0 ? 0 : eventCostNum / processedTotalNum;
 
-    final avgCostPerPage =
-        totalPagesNum == 0 ? 0 : totalCostNum / totalPagesNum;
+    final avgEventCostPerPage =
+        totalPagesNum == 0 ? 0 : eventCostNum / totalPagesNum;
 
     final isMobile = MediaQuery.of(context).size.width < 600;
 
@@ -305,23 +393,30 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                 icon: Icons.percent,
               ),
               _summaryCard(
-                title: 'Coût estimé total',
-                value: totalCost,
+                title: 'Coût événementiel estimé',
+                value: eventCost,
                 icon: Icons.payments_outlined,
               ),
               _summaryCard(
-                title: 'Coût / traitement',
-                value: money(avgCostPerDoc),
+                title: 'Coût événement / traitement',
+                value: money(avgEventCostPerDoc),
                 icon: Icons.receipt_long,
               ),
               _summaryCard(
-                title: 'Coût / page',
-                value: money(avgCostPerPage),
+                title: 'Coût événement / page',
+                value: money(avgEventCostPerPage),
                 icon: Icons.calculate_outlined,
+              ),
+              _summaryCard(
+                title: 'Stockage mensuel estimé',
+                value: money(storageData?['estimated_storage_monthly_usd']),
+                icon: Icons.storage,
               ),
             ],
           ),
 
+          const SizedBox(height: 28),
+          _weeklyCostChart(),
           const SizedBox(height: 28),
 
           LayoutBuilder(

@@ -19,6 +19,7 @@ class _AdminCostsScreenState extends State<AdminCostsScreen> {
 
   List<Map<String, dynamic>> byGuest = [];
   List<Map<String, dynamic>> byDocument = [];
+  Map<String, dynamic>? summary;
   
   int pageSize = 20;
   int guestPage = 0;
@@ -101,10 +102,20 @@ class _AdminCostsScreenState extends State<AdminCostsScreen> {
       final documentResponse = await supabase
           .rpc('rpc_admin_costs_by_document', params: params)
           .range(documentFrom, documentTo);
+      
+      final summaryResponse = await supabase.rpc(
+        'rpc_admin_costs_summary',
+        params: params,
+      );
 
       setState(() {
         byGuest = List<Map<String, dynamic>>.from(guestResponse);
         byDocument = List<Map<String, dynamic>>.from(documentResponse);
+
+        summary = (summaryResponse as List).isNotEmpty
+            ? Map<String, dynamic>.from(summaryResponse.first)
+            : null;
+
         isLoading = false;
       });
     } catch (e) {
@@ -198,6 +209,68 @@ class _AdminCostsScreenState extends State<AdminCostsScreen> {
           label: const Text('Reset'),
         ),
       ],
+    );
+  }
+
+  Widget _kpi(String label, String value) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: const TextStyle(fontSize: 12, color: Colors.grey),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          value,
+          style: const TextStyle(
+            fontSize: 18,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget summaryTotals() {
+    if (summary == null) return const SizedBox.shrink();
+
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Wrap(
+              spacing: 24,
+              runSpacing: 12,
+              children: [
+                _kpi('Events', '${summary!['total_events'] ?? 0}'),
+                _kpi('Succès', '${summary!['success_events'] ?? 0}'),
+                _kpi('Erreurs', '${summary!['failed_events'] ?? 0}'),
+                _kpi('Pages', '${summary!['pages'] ?? 0}'),
+                _kpi(
+                  'Coût traitement',
+                  money(summary!['processing_cost_usd']),
+                ),
+                _kpi(
+                  'Stockage (snapshot)',
+                  money(summary!['storage_monthly_snapshot_usd']),
+                ),
+                _kpi(
+                  'Total événement',
+                  money(summary!['total_event_cost_usd']),
+                ),
+              ],
+            ),
+            const SizedBox(height: 10),
+            const Text(
+              'Note : le stockage est une estimation mensuelle imputée aux événements de la période, pas le coût vivant des documents actuellement stockés.',
+              style: TextStyle(fontSize: 12, color: Colors.grey),
+            ),
+          ],
+        ),
+      ),
     );
   }
 
@@ -605,82 +678,6 @@ class _AdminCostsScreenState extends State<AdminCostsScreen> {
     );
   }
 
-  Widget dashboardSummary() {
-    final totalCost = byGuest.fold<double>(
-      0,
-      (sum, g) => sum + (g['total_cost_usd'] ?? 0),
-    );
-
-    final totalDocs = byDocument.length;
-
-    final totalFailed = byDocument.fold<int>(
-      0,
-      (sum, d) => sum + ((d['failed_events'] ?? 0) as int),
-    );
-
-    final totalEvents = byDocument.fold<int>(
-      0,
-      (sum, d) => sum + ((d['total_events'] ?? 0) as int),
-    );
-
-    final failureRate =
-        totalEvents == 0 ? 0 : (totalFailed / totalEvents) * 100;
-
-    final avgCost =
-        totalDocs == 0 ? 0 : totalCost / totalDocs;
-
-    final topUser = byGuest.isNotEmpty ? byGuest.first : null;
-    final topDoc = byDocument.isNotEmpty ? byDocument.first : null;
-
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Wrap(
-          spacing: 24,
-          runSpacing: 16,
-          children: [
-            _kpi('Coût total', money(totalCost)),
-            _kpi('Documents', '$totalDocs'),
-            _kpi('Taux échec', '${failureRate.toStringAsFixed(1)} %'),
-            _kpi('Coût moyen', money(avgCost)),
-
-            if (topUser != null)
-              _kpi(
-                'Top user',
-                '${topUser['guest_id']} (${money(topUser['total_cost_usd'])})',
-              ),
-
-            if (topDoc != null)
-              _kpi(
-                'Top document',
-                '${topDoc['document_id']} (${money(topDoc['total_cost_usd'])})',
-              ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _kpi(String label, String value) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          label,
-          style: const TextStyle(fontSize: 12, color: Colors.grey),
-        ),
-        const SizedBox(height: 4),
-        Text(
-          value,
-          style: const TextStyle(
-            fontSize: 18,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-      ],
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     return AdminLayout(
@@ -737,7 +734,7 @@ class _AdminCostsScreenState extends State<AdminCostsScreen> {
                         children: [
                           filters(),
                           const SizedBox(height: 12),
-                          dashboardSummary(),
+                          summaryTotals(),  
                           const SizedBox(height: 12),
                           anomalyControls(),
                           const SizedBox(height: 24),

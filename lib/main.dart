@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import 'theme/app_theme.dart';
+
 import 'admin_v2/admin_login_screen.dart';
 import 'admin_v2/admin_dashboard_screen.dart';
 import 'admin_v2/admin_costs_screen.dart';
@@ -110,21 +112,6 @@ class _AdminGuardState extends State<_AdminGuard> {
         isLoading = false;
       });
     }
-
-    /*
-    final resp = await supabase
-        .from('profiles')
-        .select('is_admin')
-        .eq('id', user.id)
-        .maybeSingle();
-
-    if (!mounted) return;
-
-    setState(() {
-      isAdmin = resp?['is_admin'] == true;
-      isLoading = false;
-    });
-    */
   }
 
   @override
@@ -188,7 +175,11 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'findAll Admin',
+      debugShowCheckedModeBanner: false,
       home: const AuthGate(),
+      theme: AppTheme.light,
+      darkTheme: AppTheme.dark,
+      themeMode: ThemeMode.system,
       routes: {
         '/login': (context) => const AdminLoginScreen(),
         '/admin': (context) => const _AdminGuard(

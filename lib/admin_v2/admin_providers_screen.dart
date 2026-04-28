@@ -320,21 +320,37 @@ class _AdminProvidersScreenState extends State<AdminProvidersScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
+            Text(
               'Comparaison coûts estimés vs coûts réels',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-              ),
+              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.bold,
+                    color: Theme.of(context).colorScheme.primary,
+                  ),
             ),
             const SizedBox(height: 12),
-            Text('Mois : ${selectedMonth.year}-${selectedMonth.month.toString().padLeft(2, '0')}'),
+            Text(
+              'Mois : ${selectedMonth.year}-${selectedMonth.month.toString().padLeft(2, '0')}',
+              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.bold,
+                    color: Theme.of(context).colorScheme.primary,
+                  ),  
+            ),
             const SizedBox(height: 8),
-            Text('Estimé : ${money(estimated)}'),
+            Text(
+              'Estimé : ${money(estimated)}',
+              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.bold,
+                    color: Theme.of(context).colorScheme.primary,
+                  ),
+            ),
             Text(
               hasProviderData
                   ? 'Réel : ${money(real)}'
                   : 'Réel : non renseigné',
+              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.bold,
+                    color: Theme.of(context).colorScheme.primary,
+                  ),
             ),
             const SizedBox(height: 8),
             Text(
